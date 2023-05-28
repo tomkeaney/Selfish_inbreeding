@@ -1,0 +1,52 @@
+---
+title: "When not to avoid inbreeding: a gene's eye view perspective"
+author: "Thomas Keaney, Arvid Agren and Hanna Kokko (no particular order yet)"
+execute: 
+  warning: false
+
+---
+
+## Project background / notes
+
+### 25 May 2023
+
+**Premise outline**
+
+This project centres around the fate of alleles that encode inbreeding preference / avoidance depending on where they occur within the genome. 
+
+But the deeper idea is that inbreeding is a 'selfish action' where some alleles benefit from helping copies of themselves in other individuals, to the detriment of the broader organism. This detriment occurs because of inbreeding depression, which occurs because of homozygosity at other loci across the genome. Homozygosity causes the expression of recessive deleterious alleles which are otherwise rarely expressed, reducing the number of viable offspring produced by the organism.
+
+To represent the broader genome, we can use alleles on hemizygous sex chromosomes, which have no opportunity to be homozygous and thus can gain no benefits of helping a relative gain a breeding opportunity. This broadly aligns with the 'interests' of the organism. For example, in an XY system alleles on the Y do not increase the propagation of alleles identical by descent through inbreeding, because females do not carry a Y. An autosomal allele, however, does have the potential to increase the proliferation of its copies by increasing the chance of breeding with a relative. This benefit is somewhat similar to that **achieved by meiotic drive allele** (clarify your thoughts here).
+
+A second potential angle is to explore the effect of the sex an allele encoding a preference for inbreeding is expressed in. This is important because the conditions often applicable to expression in a male present a greater parameter space for inbreeding preference (to put it too simply, because males invest less in each mating opportunity than females). Sex-specific effects also interact with hemizygous conditions, because in addition to XY systems, ZW systems exist and suddenly hemizygous chromosomes are present in females. 
+
+So in sum, there is a likely conflict between alleles on different chromosomes over the tendency to inbreed and there is a second non-mutually exclusive conflict between the sexes over inbreeding tendency. Wow, this is cool.
+
+**Some specific notes from the meeting**
+
+- [Hanna's 2006 paper](https://academic.oup.com/evolut/article/60/3/467/6756586?login=true) shows when a preference for inbreeding should or should not be favoured for an autosomal allele, but does not consider other regions of the genome.
+
+- Start with the Parker 1/3 thing, which Hanna and co re-derive. But they implicitly assume that the alleles in question here are on an autosome. We can make the change that they are on a sex chromosome, as stipulated above. 
+
+- The X and Z can also be explored, because of their unusual inheritance dynamics. E.g. the X spends 2/3 of its time in females, but is always expressed in males and vice versa for the W. 
+
+- Does it matter whether the loci that cause inbreeding depression are on the same/different chromosomes as those that encode inbreeding preferences...   
+
+- Birds versus mammals, flies versus butterflies etc - different hemizygous sex chromosomes
+
+- Unity breaks down because of inheritance differences
+
+- Hamilton 1967 extraordinary sex chromosomes paper is a nice angle here
+
+- Haplodiploidy - this is an extension opportunity.
+
+- I will also try to simulate this question.
+
+$~$
+
+## Load packages
+
+```{r}
+library(tidyverse) # for tidy style coding and plotting
+```
+
