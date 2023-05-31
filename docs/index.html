@@ -167,6 +167,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   <li><a href="#may-2023" id="toc-may-2023" class="nav-link" data-scroll-target="#may-2023">25 May 2023</a></li>
   </ul></li>
   <li><a href="#load-packages" id="toc-load-packages" class="nav-link" data-scroll-target="#load-packages">Load packages</a></li>
+  <li><a href="#messing-around-with-the-maths" id="toc-messing-around-with-the-maths" class="nav-link" data-scroll-target="#messing-around-with-the-maths">Messing around with the maths</a></li>
   </ul>
 </nav>
 </nav>
@@ -229,9 +230,56 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse) <span class="co"># for tidy style coding and plotting</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse) <span class="co"># for tidy style coding and plotting</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MetBrewer) <span class="co"># for colour palettes based upon artwork housed at the met</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
+</section>
+<section id="messing-around-with-the-maths" class="level2">
+<h2 class="anchored" data-anchor-id="messing-around-with-the-maths">Messing around with the maths</h2>
+<p>Our basic equation includes three parameters</p>
+<ol type="1">
+<li><p><span class="math inline">\(n\)</span> the number of offspring produced directly</p></li>
+<li><p>The loss in fitness (number of offspring) due to inbreeding: <span class="math inline">\(-\delta n\)</span></p></li>
+<li><p>The inclusive fitness gain (number of offspring) due to inbreeding: <span class="math inline">\(rn\)</span>, where <span class="math inline">\(r\)</span> is the relatedness coefficient</p></li>
+</ol>
+<p>Put together the inclusive fitness from an inbred mating (assuming the female is singly mated etc) is:</p>
+<p><span class="math display">\[(1 + r)(1 - \delta)n\]</span></p>
+<p>while fitness from an outbred mating is simply</p>
+<p><span class="math display">\[n\]</span></p>
+<p>when <span class="math inline">\((1 + r)(1 - \delta)n \gt n\)</span> selection should favour a preference for inbreeding</p>
+<p>I find the messy condition is:</p>
+<p><span class="math display">\[\delta \lt -1(\frac{1}{1 + r} - 1)\]</span></p>
+<p>Hanna simplifies the equation to</p>
+<p><span class="math display">\[\delta \lt \frac{r}{1 + r}\]</span> Plot the required level of inbreeding depression required to stop inbreeding from evolving.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>inbreeding_maximum_function <span class="ot">&lt;-</span> <span class="cf">function</span>(r){</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  r <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> r)}</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>r <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">r =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> <span class="fl">0.01</span>))</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>inbreeding_equilibria <span class="ot">&lt;-</span> </span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(r, inbreeding_maximum_function) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">inbreeding_depression =</span> r) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_cols</span>(r)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>inbreeding_equilibria <span class="sc">%&gt;%</span> </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> r, <span class="at">y =</span> inbreeding_depression)) <span class="sc">+</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Loss in fitness due to inbreeding</span><span class="sc">\n</span><span class="st"> depression (prop)"</span>, </span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"r, the relatedness coefficient"</span>) <span class="sc">+</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">14</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.</p>
 
 
 </section>

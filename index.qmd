@@ -48,5 +48,60 @@ $~$
 
 ```{r}
 library(tidyverse) # for tidy style coding and plotting
+library(MetBrewer) # for colour palettes based upon artwork housed at the met
 ```
 
+## Messing around with the maths
+
+Our basic equation includes three parameters
+
+1. $n$ the number of offspring produced directly
+
+2. The loss in fitness (number of offspring) due to inbreeding: $-\delta n$
+
+3. The inclusive fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient 
+
+Put together the inclusive fitness from an inbred mating (assuming the female is singly mated etc) is:
+
+$$(1 + r)(1 - \delta)n$$
+
+while fitness from an outbred mating is simply
+
+$$n$$
+
+when $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding
+
+I find the messy condition is:
+
+$$\delta \lt -1(\frac{1}{1 + r} - 1)$$
+
+Hanna simplifies the equation to
+
+$$\delta \lt \frac{r}{1 + r}$$
+Plot the required level of inbreeding depression required to stop inbreeding from evolving.
+
+```{r, echo=TRUE}
+
+inbreeding_maximum_function <- function(r){
+  r / (1 + r)}
+
+
+r <- tibble(r = seq(from = 0, to = 1, by = 0.01))
+
+inbreeding_equilibria <- 
+  map_dfr(r, inbreeding_maximum_function) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(r)
+
+inbreeding_equilibria %>% 
+  ggplot(aes(x = r, y = inbreeding_depression)) +
+  geom_line(linewidth = 0.8) + 
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(y = "Loss in fitness due to inbreeding\n depression (prop)", 
+       x = "r, the relatedness coefficient") +
+  theme_bw() +
+  theme(text = element_text(size = 14))
+
+```
+
+The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.

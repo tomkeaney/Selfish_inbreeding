@@ -11,7 +11,7 @@
     "href": "index.html#load-packages",
     "title": "When not to avoid inbreeding: a gene’s eye view perspective",
     "section": "Load packages",
-    "text": "Load packages\n\n\nCode\nlibrary(tidyverse) # for tidy style coding and plotting"
+    "text": "Load packages\n\n\nCode\nlibrary(tidyverse) # for tidy style coding and plotting\nlibrary(MetBrewer) # for colour palettes based upon artwork housed at the met"
   },
   {
     "objectID": "Selfish_inbreeding.html",
@@ -19,5 +19,12 @@
     "title": "Selfish_inbreeding",
     "section": "",
     "text": "Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see https://quarto.org."
+  },
+  {
+    "objectID": "index.html#messing-around-with-the-maths",
+    "href": "index.html#messing-around-with-the-maths",
+    "title": "When not to avoid inbreeding: a gene’s eye view perspective",
+    "section": "Messing around with the maths",
+    "text": "Messing around with the maths\nOur basic equation includes three parameters\n\n\\(n\\) the number of offspring produced directly\nThe loss in fitness (number of offspring) due to inbreeding: \\(-\\delta n\\)\nThe inclusive fitness gain (number of offspring) due to inbreeding: \\(rn\\), where \\(r\\) is the relatedness coefficient\n\nPut together the inclusive fitness from an inbred mating (assuming the female is singly mated etc) is:\n\\[(1 + r)(1 - \\delta)n\\]\nwhile fitness from an outbred mating is simply\n\\[n\\]\nwhen \\((1 + r)(1 - \\delta)n \\gt n\\) selection should favour a preference for inbreeding\nI find the messy condition is:\n\\[\\delta \\lt -1(\\frac{1}{1 + r} - 1)\\]\nHanna simplifies the equation to\n\\[\\delta \\lt \\frac{r}{1 + r}\\] Plot the required level of inbreeding depression required to stop inbreeding from evolving.\n\n\nCode\ninbreeding_maximum_function <- function(r){\n  r / (1 + r)}\n\n\nr <- tibble(r = seq(from = 0, to = 1, by = 0.01))\n\ninbreeding_equilibria <- \n  map_dfr(r, inbreeding_maximum_function) %>% \n  rename(inbreeding_depression = r) %>% \n  bind_cols(r)\n\ninbreeding_equilibria %>% \n  ggplot(aes(x = r, y = inbreeding_depression)) +\n  geom_line(linewidth = 0.8) + \n  coord_cartesian(ylim = c(0, 1)) +\n  labs(y = \"Loss in fitness due to inbreeding\\n depression (prop)\", \n       x = \"r, the relatedness coefficient\") +\n  theme_bw() +\n  theme(text = element_text(size = 14))\n\n\n\n\n\nThe parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve."
   }
 ]
