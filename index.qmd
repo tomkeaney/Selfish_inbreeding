@@ -6,52 +6,17 @@ execute:
 
 ---
 
-## Project background / notes
-
-### 25 May 2023
-
-**Premise outline**
-
-This project centres around the fate of alleles that encode inbreeding preference / avoidance depending on where they occur within the genome. 
-
-But the deeper idea is that inbreeding is a 'selfish action' where some alleles benefit from helping copies of themselves in other individuals, to the detriment of the broader organism. This detriment occurs because of inbreeding depression, which occurs because of homozygosity at other loci across the genome. Homozygosity causes the expression of recessive deleterious alleles which are otherwise rarely expressed, reducing the number of viable offspring produced by the organism.
-
-To represent the broader genome, we can use alleles on hemizygous sex chromosomes, which have no opportunity to be homozygous and thus can gain no benefits of helping a relative gain a breeding opportunity. This broadly aligns with the 'interests' of the organism. For example, in an XY system alleles on the Y do not increase the propagation of alleles identical by descent through inbreeding, because females do not carry a Y. An autosomal allele, however, does have the potential to increase the proliferation of its copies by increasing the chance of breeding with a relative. This benefit is somewhat similar to that **achieved by meiotic drive allele** (clarify your thoughts here).
-
-A second potential angle is to explore the effect of the sex an allele encoding a preference for inbreeding is expressed in. This is important because the conditions often applicable to expression in a male present a greater parameter space for inbreeding preference (to put it too simply, because males invest less in each mating opportunity than females). Sex-specific effects also interact with hemizygous conditions, because in addition to XY systems, ZW systems exist and suddenly hemizygous chromosomes are present in females. 
-
-So in sum, there is a likely conflict between alleles on different chromosomes over the tendency to inbreed and there is a second non-mutually exclusive conflict between the sexes over inbreeding tendency. Wow, this is cool.
-
-**Some specific notes from the meeting**
-
-- [Hanna's 2006 paper](https://academic.oup.com/evolut/article/60/3/467/6756586?login=true) shows when a preference for inbreeding should or should not be favoured for an autosomal allele, but does not consider other regions of the genome.
-
-- Start with the Parker 1/3 thing, which Hanna and co re-derive. But they implicitly assume that the alleles in question here are on an autosome. We can make the change that they are on a sex chromosome, as stipulated above. 
-
-- The X and Z can also be explored, because of their unusual inheritance dynamics. E.g. the X spends 2/3 of its time in females, but is always expressed in males and vice versa for the W. 
-
-- Does it matter whether the loci that cause inbreeding depression are on the same/different chromosomes as those that encode inbreeding preferences...   
-
-- Birds versus mammals, flies versus butterflies etc - different hemizygous sex chromosomes
-
-- Unity breaks down because of inheritance differences
-
-- Hamilton 1967 extraordinary sex chromosomes paper is a nice angle here
-
-- Haplodiploidy - this is an extension opportunity.
-
-- I will also try to simulate this question.
-
-$~$
-
 ## Load packages
 
 ```{r}
 library(tidyverse) # for tidy style coding and plotting
+library(pander) # for tables
 library(MetBrewer) # for colour palettes based upon artwork housed at the met
 ```
 
-## Messing around with the maths
+## Kokko and Ots' continuous 'time in' and 'time out' model
+
+### Messing around with the maths
 
 Our basic equation includes three parameters
 
@@ -61,7 +26,7 @@ Our basic equation includes three parameters
 
 3. The inclusive fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient 
 
-Put together the inclusive fitness from an inbred mating (assuming the female is singly mated etc) is:
+Put together the inclusive fitness from an inbred mating (assuming the female is carrying eggs fertilised by a single males sperm) is:
 
 $$(1 + r)(1 - \delta)n$$
 
@@ -86,7 +51,10 @@ inbreeding_maximum_function <- function(r){
   r / (1 + r)}
 
 
-r <- tibble(r = seq(from = 0, to = 1, by = 0.01))
+parameters <- expand_grid(r = seq(from = 0, to = 1, by = 0.05),
+                          delta = seq(from = 0, to = 1, by = 0.05))
+
+r <- parameters %>% distinct(r)
 
 inbreeding_equilibria <- 
   map_dfr(r, inbreeding_maximum_function) %>% 
@@ -97,7 +65,7 @@ inbreeding_equilibria %>%
   ggplot(aes(x = r, y = inbreeding_depression)) +
   geom_line(linewidth = 0.8) + 
   coord_cartesian(ylim = c(0, 1)) +
-  labs(y = "Loss in fitness due to inbreeding\n depression (prop)", 
+  labs(y = "Inbreeding depression (prop fitness lost)\n that can be tolerated", 
        x = "r, the relatedness coefficient") +
   theme_bw() +
   theme(text = element_text(size = 14))
@@ -105,3 +73,480 @@ inbreeding_equilibria %>%
 ```
 
 The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.
+
+### Add an opportunity for kin selection variable
+
+As stated above, the inclusive fitness where there is no inbreeding depression is:
+
+$$(1 + r)n$$
+
+we can add our 'opportunity for kin selection' parameter $o_i$
+
+$$(1 + ro_i)n$$
+
+which moderates the indirect fitness benefit by the probability that an allele identical by descent is propagated ($r$) and further, by the probability for the chromosome upon which the locus in question is found to actually be transmitted by the second individual ($o_i$) (relative to autosomal conditions).
+
+For example, an inbreeding preference allele present on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding. In this case $o_i = 0$. Conversely, an autosomal inbreeding preference allele can potentially propagate two copies of identical by descent alleles (the maximum in diploid organisms). $o_i = 1$ in this case. The results for the autosomal scenario are presented in Kokko and Ots (2006), and the Y chromosome case produces clear results, as when $x = 0$ inbreeding preference alleles provide no indirect fitness benefits and inbreeding is rarely adaptive when there is inbreeding depression (with exceptions). 
+
+The X or W chromosomes present a more complex case. Using the X as an example, X-linked alleles present in a male always have the opportunity to propagate IBD alleles carried by females through inbreeding. This is because the female relative will pass an X on to 100% of her offspring. However, the situation is not the same in females. X linked-alleles in females do not have any opportunity to propagate alleles IBD when producing sons, as mating partners only transmit Y chromosomes. Thus, if the primary sex ratio is even, then 50% of offspring provide no opportunity for inclusive fitness effects through inbreeding.
+
+```{r}
+x <- 
+  c(1, # autosomes, X chromosome males or Z chromosome females, haplodiploid both sexes when producing females 
+    0, # Y or W chromosome
+    0.5 # X chromosome females or Z chromosome males
+  )
+
+tibble(`Opportunity for kin selection through inbreeding` = c(1, 0.5, 0),
+       `Relevant cases` = c("Autosomes in either sex, X chromosomes in males, Z chromosomes in females, chromosomes in haplodiploids of either sex when producing females",
+                            "X chromosomes in females, Z chromosomes in males",
+                            "Y chromosomes in males, W chromosomes in females")) %>% 
+  pander(split.cell = 20, split.table = Inf)
+```
+
+The inclusive fitness from an inbreeding event becomes
+
+$$(1 + ro_i)(1 - \delta )n$$
+
+Once again we can find the condition where inbreeding preferences should be selected (or where breeding with a relative returns greater fitness than an inbreeding avoidance strategy), this time accounting for chromosomal location
+
+$$\delta \lt 1 - \frac{1}{1 + ro_i}$$
+
+which can neatly be expressed as
+
+$$\delta \lt \frac{ro_i}{1 + ro_i}$$
+
+```{r}
+
+inbreeding_maximum_function_2 <- function(r, o){
+  (r*o / (r*o + 1))}
+
+
+parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
+                          o = c(0, 0.5, 1))
+
+inbreeding_equilibria_2 <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_maximum_function_2) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2)
+
+inbreeding_equilibria_2 %>% 
+  mutate(o = as.factor(o)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = o)) +
+  geom_line(linewidth = 0.8) + 
+ # scale_colour_manual(values = c("0" = met.brewer("Kandinsky", 4)[1], "0.5" =  met.brewer("Kandinsky", 4)[2], "1" = met.brewer("Kandinsky", 4)[3])) +
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
+       x = "r, the relatedness coefficient",
+       linetype = "Opportunity for\n kin selection") +
+  theme_bw() +
+  theme(text = element_text(size = 14),
+        legend.position = "bottom")
+```
+
+The equations producing the slopes shown above assume that inbreeding has the same effect on every individual in the population, except that there is a difference between mating types in the transmission of certain chromosomes. 
+
+$~$
+
+### Modelling the lifecycle
+
+$~$
+
+**This is hard, but everything should be in the Kokko and Ots paper**
+
+We can now directly follow Kokko and Ots (2006), altering the equations where required to reflect the fitness consequences of inbreeding for different chromosomes. 
+
+
+::: {.callout-note appearance=minimal}
+
+## Parameter definitions
+
+
+$\delta$: fraction of offspring lost due to inbreeding (inbreeding depression)
+
+$v_I$: 'time in' reproductive value of individuals of the choosing sex
+
+$w_I$: 'time in' reproductive value of individuals of the opposite sex
+
+$v_O$: 'time out' reproductive value of individuals of the choosing sex
+
+$w_O$: 'time out' reproductive value of individuals of the opposite sex
+
+$M$: the unrelated mate encounter rate during time in (when sex ratio is unbiased)
+
+$m_v = M \sqrt{\beta}$: the mating rate for the choosy sex
+
+$m_w = \frac{M}{\sqrt{\beta}}$: the mating rate for the opposite sex
+
+$\beta$: the operational sex ratio (males:females)
+
+$a$: average number of offspring produced from a mating (**I think - needs to be found numerically**)
+
+$T_v$: time out duration for choosing sex
+
+$T_w$: time out duration for opposite sex
+
+$\mu_{Iv}$: 'time in' mortality risk of individuals of the choosing sex
+
+$\mu_{Iw}$: 'time in' mortality risk of individuals of the opposite sex
+
+$\mu_{Ov}$: 'time out' mortality risk of individuals of the choosing sex
+
+$\mu_{Ow}$: 'time out' mortality risk of individuals of the opposite sex
+
+:::
+
+After mating, offspring are produced, with a direct fitness benefit of $$a(v_I + w_I)$$
+
+
+#### Simultaneous mate choice
+
+
+The choosing sex can either mate with an unrelated individual or an individual related by $r$. 
+
+Mate with unrelated individual: $v_O + ro_iw_I + a(v_I + w_1)$
+
+Mate with kin: $v_O + ro_iw_O + (1 + ro_i)(1 - \delta)a(v_I + w_1)$
+
+We continue to frame our study around the value of $\delta$ that can be tolerated, or put another way, to what extent can inbreeding reduce offspring viability and still be the selected strategy?
+
+We therefore rearrange the equation to find the threshold value of $\delta$ where
+
+$$v_O + ro_iw_O + (1 + ro_i)(1 - \delta)a(v_I + w_1) \gt v_O + ro_iw_I + a(v_I + w_1)$$
+
+to 
+
+
+$$\delta_{sim} = 1 - \frac{a(v_I + w_I) + ro_i(w_I - w_O)}{a(1 + ro_i)(v_I + w_I)}$$
+which can be more neatly expressed as
+
+$$\delta_{sim} = \frac{a ro_i(v_I + w_I) - ro_i(w_I - w_O)}{a(1 + ro_i)(v_I + w_I)}$$
+
+#### Sequential choice
+
+In this scenario, a choosy individual (**note that our models are framed around the strategy adopted by the choosy individuals**) encounters a single potential mate, related by $r$. The choosing sex can either mate with this individual or elect not to mate and wait for a future opportunity. 
+
+Not mating produces the inclusive fitness:
+
+$$v_I + ro_iw_I$$
+Now an inbreeding preference strategy is favoured where
+
+$$v_O + ro_iw_O + (1 + ro_i)(1 - \delta)a(v_I + w_1) \gt v_I + ro_iw_I$$
+
+
+Thus, the threshold $\delta$ value below which inbreeding is adaptive is 
+
+
+$$\delta_{seq} = 1 - \frac{(v_I - v_O) + ro_i(w_I - w_O)}{a(1 + ro_i)(v_I + w_I)}$$
+$~$
+
+### Calculating reproductive value
+
+$~$
+
+$$\begin{bmatrix}dv_I/dt\\
+dv_O/dt\\
+dw_I/dt\\
+dw_O/dt
+\end{bmatrix} =
+
+\begin{bmatrix}-\mu_{Iv} + m_v(a - 1)  & m_v & am_v &  0\\
+1/T_v & 1/T_v -\mu_{Ov} & 0 & 0\\
+am_w & 0 & -\mu_{Iw} + m_w(a - 1) & m_w\\
+0 & 0 & 1/Tw & 1/T_w -\mu_{Ow}
+\end{bmatrix}
+*
+\begin{bmatrix}v_I\\
+v_O\\
+w_I\\
+w_O
+\end{bmatrix}$$
+
+
+
+```{r}
+m1 <- matrix(c(1:4), ncol = 1)
+
+m2 <- matrix(c(1:16), nrow = 4, ncol = 4)
+
+m2 %*% m1
+```
+
+
+**Create a function to calculate reproductive value for each state**
+
+```{r, eval=FALSE}
+change_repro_values <- 
+  matrix(c(-1*death_rate_in_choosy_sex + mating_rate_choosy_sex *(a - 1),
+           mating_rate_choosy_sex,
+           a*mating_rate_choosy_sex,
+           0,
+           1/time_out_duration_choosy_sex,
+           -1/time_out_duration_choosy_sex - death_rate_out_choosy_sex,
+           0,
+           0,
+           a*mating_rate_opp_sex,
+           0,
+           -1*death_rate_in_opp_sex + mating_rate_opp_sex *(a - 1),
+           mating_rate_opp_sex,
+           0,
+           0,
+           1/time_out_duration_opp_sex,
+           -1/time_out_duration_opp_sex - death_rate_out_opp_sex),
+         nrow = 4, ncol = 4)
+
+state_repro_values <- c(vI, vO, wI, wO)
+
+parameters <- 
+  expand_grid(r = 0.5,
+              x = c(0, 0.5, 1),
+              death_rate_in_choosy_sex = 1,
+              mating_rate_choosy_sex = ,
+              time_out_duration_choosy_sex = c(0.1, 0.01),
+              death_rate_out_choosy_sex = 1,
+              mating_rate_opp_sex = ,
+              death_rate_in_opp_sex = 1,
+              time_out_duration_opp_sex = ,
+              death_rate_out_opp_sex = 1,
+              a = ((mating_rate_choosy_sex*(1/time_out_duration_choosy_sex + death_rate_in_choosy_sex)/
+                      (death_rate_out_choosy_sex/time_out_duration_choosy_sex + 
+                         death_rate_in_choosy_sex*(mating_rate_choosy_sex + death_rate_out_choosy_sex)))^-1)/2
+  )
+
+```
+
+
+## A simpler approach: adapted from Parker 1979
+
+Parker's original equations:
+
+In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a full sibling, $r = 0.5$.
+
+For males he found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
+
+$$N(1 - D) + \frac{1}{2}N(1-D) - cN \gt \frac{1}{2}N$$
+
+the first term is the direct number of offspring alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing (an opportunity cost) and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he not mated at all). 
+
+Note that $D$ represents inbreeding depression (the prop of progeny production lost), which is equivalent to $\delta$ used in more recent models.
+
+$c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males contribute only sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c = 0$. 
+
+If we wish to find the conditions under which male inbreeding is favoured for all levels of relatedness, $r$ can be substituted into the equation:
+
+$$N(1 - D) + rN(1-D) - cN \gt rN$$
+
+into which we can add the $o$ variable and simplify to
+
+$$(1-D) + ro_i(1-D) - c \gt ro_i$$
+
+Parker then modelled the condition for **females** to prefer incestuous matings when also presented with an outcrossing opportunity. 
+
+
+$$N(1 - D) + rN(1-D) - crN \gt N$$
+which we can write as
+
+$$(1-D) + ro_i(1-D) - ro_ic \gt 1$$
+
+As we have above, lets find the inbreeding threshold above which incestuous mating is maladaptive.
+
+First for males
+
+$$\delta_{male} = \frac{1 - c}{1 + ro_i}$$
+
+and for females
+
+$$\delta_{female} = \frac{ ro_i - ro_ic}{1 + ro_i}$$
+Plot the relationship between $r$ and $\delta$ for several values of $c$
+
+```{r}
+
+# note: map2 can only handle two arguments, so for now I set c = 0
+
+inbreeding_threshold_function_female <- function(r, o){
+  (r*o - r*o*0) / (r*o + 1)}
+
+
+parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
+                          o = c(0, 0.5, 1))
+
+inbreeding_threshold_female <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_threshold_function_female) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2) %>% 
+  mutate(Sex = "Female")
+
+# now build a function for males
+
+inbreeding_threshold_function_male <- function(r, o){
+  (1 - 0) / (r*o + 1)}
+
+inbreeding_threshold_male <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_threshold_function_male) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2) %>% 
+  mutate(Sex = "Male")
+
+sex_specific_inbreeding_thresholds <- 
+  bind_rows(inbreeding_threshold_female, inbreeding_threshold_male)
+
+# plot style 1
+
+p1 <- 
+  sex_specific_inbreeding_thresholds %>% 
+  mutate(o = as.factor(o)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = o, colour = Sex)) +
+  geom_line(linewidth = 0.9) + 
+  scale_colour_manual(values = c("Female" = met.brewer("Java", 5)[2], "Male" =  met.brewer("Java", 5)[5])) +
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
+       x = "r, the relatedness coefficient",
+       linetype = "Opportunity for\n kin selection",
+       subtitle = "c = 0") +
+  theme_bw() +
+  theme(text = element_text(size = 14),
+        legend.position = "bottom")
+
+p1
+
+# plot style 2
+
+p1b <- 
+  sex_specific_inbreeding_thresholds %>% 
+  mutate(o = as.factor(o)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = Sex)) +
+  geom_line(linewidth = 0.8) + 
+ # scale_colour_manual(values = c("0" = met.brewer("Kandinsky", 4)[1], "0.5" =  met.brewer("Kandinsky", 4)[2], "1" = met.brewer("Kandinsky", 4)[3])) +
+  coord_cartesian(ylim = c(0, 1)) +
+  facet_wrap(~o) +
+  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
+       x = "r, the relatedness coefficient")+#,
+       #linetype = "Opportunity for\n kin selection") +
+  theme_bw() +
+  theme(text = element_text(size = 14),
+        legend.position = "bottom")
+```
+
+
+```{r}
+
+# note: map2 can only handle two arguments, so for now I set c = 0
+
+inbreeding_threshold_function_female_0.5 <- function(r, o){
+  (r*o - r*o*0.5) / (r*o + 1)}
+
+
+parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
+                          o = c(0, 0.5, 1))
+
+inbreeding_threshold_female_0.5 <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_threshold_function_female_0.5) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2) %>% 
+  mutate(Sex = "Female")
+
+# now build a function for males
+
+inbreeding_threshold_function_male_0.5 <- function(r, o){
+  (1 - 0.5) / (r*o + 1)}
+
+inbreeding_threshold_male_0.5 <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_threshold_function_male_0.5) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2) %>% 
+  mutate(Sex = "Male")
+
+sex_specific_inbreeding_thresholds_0.5 <- 
+  bind_rows(inbreeding_threshold_female_0.5, inbreeding_threshold_male_0.5)
+
+# plot style 1
+
+p2 <- 
+  sex_specific_inbreeding_thresholds_0.5 %>% 
+  mutate(o = as.factor(o)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = o, colour = Sex)) +
+  geom_line(linewidth = 0.9) + 
+  scale_colour_manual(values = c("Female" = met.brewer("Java", 5)[2], "Male" =  met.brewer("Java", 5)[5])) +
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
+       x = "r, the relatedness coefficient",
+       linetype = "Opportunity for\n kin selection",
+       subtitle = "c = 0.5") +
+  theme_bw() +
+  theme(text = element_text(size = 14),
+        legend.position = "bottom")
+
+p2
+```
+
+```{r}
+
+# note: map2 can only handle two arguments, so for now I set c = 0
+
+inbreeding_threshold_function_female_0.9 <- function(r, o){
+  (r*o - r*o*0.9) / (r*o + 1)}
+
+
+parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
+                          o = c(0, 0.5, 1))
+
+inbreeding_threshold_female_0.9 <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_threshold_function_female_0.9) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2) %>% 
+  mutate(Sex = "Female")
+
+# now build a function for males
+
+inbreeding_threshold_function_male_0.9 <- function(r, o){
+  (1 - 0.9) / (r*o + 1)}
+
+inbreeding_threshold_male_0.9 <- 
+  map2_dfr(parameters_2 %>% select(r), 
+           parameters_2 %>% select(o), 
+           inbreeding_threshold_function_male_0.9) %>% 
+  rename(inbreeding_depression = r) %>% 
+  bind_cols(parameters_2) %>% 
+  mutate(Sex = "Male")
+
+sex_specific_inbreeding_thresholds_0.9 <- 
+  bind_rows(inbreeding_threshold_female_0.9, inbreeding_threshold_male_0.9)
+
+# plot style 1
+
+p3 <- 
+  sex_specific_inbreeding_thresholds_0.9 %>% 
+  mutate(o = as.factor(o)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = o, colour = Sex)) +
+  geom_line(linewidth = 0.9) + 
+  scale_colour_manual(values = c("Female" = met.brewer("Java", 5)[2], "Male" =  met.brewer("Java", 5)[5])) +
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
+       x = "r, the relatedness coefficient",
+       linetype = "Opportunity for\n kin selection",
+       subtitle = "c = 0.9") +
+  theme_bw() +
+  theme(text = element_text(size = 14),
+        legend.position = "bottom")
+
+p3
+```
+
+
+
+
+
+
+

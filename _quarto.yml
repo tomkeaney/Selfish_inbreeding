@@ -6,14 +6,18 @@ website:
   title: "A gene's eye view to inbreeding"
   navbar:
     left:
+      - href: notes.qmd
+        text: Project notes
       - href: index.qmd
-        text: Home
+        text: Modelling
 
 format:
   html:
-      theme: Minty
-      max-width: 1800px
-      toc: true
-      toc-location: left
-      code-fold: true
-      smooth-scroll: true
+      theme: Minty # browse these here: https://quarto.org/docs/output-formats/html-themes.html
+      max-width: 1800px # adjust if your plots don't fit or you want more or less whitespace
+      toc: true # do you want a table of contents, by default it floats as you scroll
+      toc-location: left # where should it be displayed
+      toc-title: "Sections" 
+      code-fold: true # fold code up for neater display
+      smooth-scroll: true 
+      embed-resources: true # output doc contains all info needed to display html
