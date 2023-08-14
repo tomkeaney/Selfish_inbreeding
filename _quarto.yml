@@ -9,7 +9,7 @@ website:
       - href: notes.qmd
         text: Project notes
       - href: index.qmd
-        text: Modelling
+        text: Modelling progress
 
 format:
   html:

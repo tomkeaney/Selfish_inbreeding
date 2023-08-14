@@ -12,11 +12,14 @@ execute:
 library(tidyverse) # for tidy style coding and plotting
 library(pander) # for tables
 library(MetBrewer) # for colour palettes based upon artwork housed at the met
+library(wesanderson) # for colour palettes based on wes anderson movies
+library(tidybayes) # for plotting distributions
+library(stickylabeller) # labelling facets with strings in ggplot
+library(patchwork) # for combining plots 
+library(geomtextpath) # for curved plot annotations
 ```
 
-## Kokko and Ots' continuous 'time in' and 'time out' model
-
-### Messing around with the maths
+## The basic equations
 
 Our basic equation includes three parameters
 
@@ -24,26 +27,22 @@ Our basic equation includes three parameters
 
 2. The loss in fitness (number of offspring) due to inbreeding: $-\delta n$
 
-3. The inclusive fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient 
+3. The indirect fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient 
 
-Put together the inclusive fitness from an inbred mating (assuming the female is carrying eggs fertilised by a single males sperm) is:
+Put together, the inclusive fitness from a single inbred mating in a monogamous mating system is:
 
 $$(1 + r)(1 - \delta)n$$
 
-while fitness from an outbred mating is simply
+while fitness from a single outbred mating is simply
 
 $$n$$
 
-when $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding
+when $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding.
 
-I find the messy condition is:
-
-$$\delta \lt -1(\frac{1}{1 + r} - 1)$$
-
-Hanna simplifies the equation to
+Solving the inequality for $\delta$:
 
 $$\delta \lt \frac{r}{1 + r}$$
-Plot the required level of inbreeding depression required to stop inbreeding from evolving.
+which for varying values of $r$ looks like this:
 
 ```{r, echo=TRUE}
 
@@ -65,30 +64,42 @@ inbreeding_equilibria %>%
   ggplot(aes(x = r, y = inbreeding_depression)) +
   geom_line(linewidth = 0.8) + 
   coord_cartesian(ylim = c(0, 1)) +
-  labs(y = "Inbreeding depression (prop fitness lost)\n that can be tolerated", 
-       x = "r, the relatedness coefficient") +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)') +
+  scale_x_continuous(expand = c(0, 0.009)) + 
+  scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
   theme(text = element_text(size = 14))
+
+# (prop fitness lost)\n that can be tolerated"
 
 ```
 
 The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.
 
-### Add an opportunity for kin selection variable
+## Add a 'heritability-like' moderator variable
 
-As stated above, the inclusive fitness where there is no inbreeding depression is:
+As stated above, inclusive fitness where there is no inbreeding depression is $(1 + r)n$.
 
-$$(1 + r)n$$
+However, for $rn$ to influence the evolutionary response, an allele present in the focal individual must also have some potential to be carried by the interacting individual. Here $r$ represents the correlation between genotypes carried by interacting females and males, specific to loci that appear equally in both sexes (e.g. loci on autosomes). However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci. 
 
-we can add our 'opportunity for kin selection' parameter $o_i$
+To delineate differences in the effect of $r$ for different regions of the genome, we moderate the effect of $r$ by multiplying it with a new variable $a$, the probability that a locus present in one sex is also present in the other. Unlike $r$ which is relative to the population mean relatedness, $a$ is expressed as an absolute value ranging from 0 to 1.
 
-$$(1 + ro_i)n$$
+The indirect component of fitness accrued by from an inbred mating becomes
 
-which moderates the indirect fitness benefit by the probability that an allele identical by descent is propagated ($r$) and further, by the probability for the chromosome upon which the locus in question is found to actually be transmitted by the second individual ($o_i$) (relative to autosomal conditions).
+$$(1 + ra)n$$
 
-For example, an inbreeding preference allele present on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding. In this case $o_i = 0$. Conversely, an autosomal inbreeding preference allele can potentially propagate two copies of identical by descent alleles (the maximum in diploid organisms). $o_i = 1$ in this case. The results for the autosomal scenario are presented in Kokko and Ots (2006), and the Y chromosome case produces clear results, as when $x = 0$ inbreeding preference alleles provide no indirect fitness benefits and inbreeding is rarely adaptive when there is inbreeding depression (with exceptions). 
+The indirect fitness benefit is therefore moderated by a product of the correlation between alleles carried by two individuals and the correlation between loci carried by two individuals. Both correlations must be non-zero in order for their to be an evolutionary response to kin selection. Taking an allele found at a diploid autosomal locus as an example, a relative carries two copies of this locus, both of which could potentially contain alleles identical by descent. In this case $a = 1$ and the evolutionary response to kin selection is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic.
 
-The X or W chromosomes present a more complex case. Using the X as an example, X-linked alleles present in a male always have the opportunity to propagate IBD alleles carried by females through inbreeding. This is because the female relative will pass an X on to 100% of her offspring. However, the situation is not the same in females. X linked-alleles in females do not have any opportunity to propagate alleles IBD when producing sons, as mating partners only transmit Y chromosomes. Thus, if the primary sex ratio is even, then 50% of offspring provide no opportunity for inclusive fitness effects through inbreeding.
+In contrast, an inbreeding preference allele present at a locus on an Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the opposite sex mating partner. In this case $a = 0$. However, as inbreeding depression is the result of homozygosity for deleterious reccessive alleles throughout the genome, the costs of inbreeding depression remains the same. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear. 
+
+X- or Z-linked loci present an interesting intermediate case, with sex-specific effects. The intersex correlation between loci is half that of autosomal loci for the sex with homozygous sex chromosomes, whereas it does not depart from the autosomal case when expressed in the hemizygous sex. Using loci on the X as an example, those expressed in a female are only found in ~50% of a interacting males gametes$^*$, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and the one-way intersex correlation between loci = 1. 
+
+The X/Z situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.
+
+$^*$ thinking about $a$ as the correlation between loci present in the focal individual and those present in a randomly chosen gamete of the interacting individual might be the best way forward.
+
+Table 1. Values of the parameter $a$ for different regions of the genome. $a$ is the one-way intersex correlation between loci present in interacting individuals. Note that mitochondria are the only endosymbiont I've included, because of the sex ratio distortion caused by many of the others, which could lead to intermediate values of $a$.   
 
 ```{r}
 x <- 
@@ -97,456 +108,952 @@ x <-
     0.5 # X chromosome females or Z chromosome males
   )
 
-tibble(`Opportunity for kin selection through inbreeding` = c(1, 0.5, 0),
-       `Relevant cases` = c("Autosomes in either sex, X chromosomes in males, Z chromosomes in females, chromosomes in haplodiploids of either sex when producing females",
+tibble(`Intersex correlation between loci (one-way)` = c(1, 0.5, 0),
+       `Relevant cases` = c("Autosomes in either sex, X chromosomes in males, Z chromosomes in females, chromosomes in haplodiploids of either sex when reproducing sexually, mitochondrial chromosomes in males",
                             "X chromosomes in females, Z chromosomes in males",
-                            "Y chromosomes in males, W chromosomes in females")) %>% 
+                            "Y chromosomes in males, W chromosomes in females, mitochondrial chromosomes in females")) %>% 
   pander(split.cell = 20, split.table = Inf)
 ```
 
 The inclusive fitness from an inbreeding event becomes
 
-$$(1 + ro_i)(1 - \delta )n$$
+$$(1 + ra)(1 - \delta )n$$
 
-Once again we can find the condition where inbreeding preferences should be selected (or where breeding with a relative returns greater fitness than an inbreeding avoidance strategy), this time accounting for chromosomal location
+Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture
 
-$$\delta \lt 1 - \frac{1}{1 + ro_i}$$
-
-which can neatly be expressed as
-
-$$\delta \lt \frac{ro_i}{1 + ro_i}$$
+$$\delta \lt \frac{ra}{1 + ra}$$
+Ignoring frequency dependence for now, we can plot the new slopes produced by varying $r$ and $a$:
 
 ```{r}
 
-inbreeding_maximum_function_2 <- function(r, o){
-  (r*o / (r*o + 1))}
+inbreeding_maximum_function_2 <- function(r, a){
+  (r*a / (r*a + 1))}
 
 
 parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
-                          o = c(0, 0.5, 1))
+                          a = c(0, 0.5, 1))
 
 inbreeding_equilibria_2 <- 
   map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
+           parameters_2 %>% select(a), 
            inbreeding_maximum_function_2) %>% 
   rename(inbreeding_depression = r) %>% 
   bind_cols(parameters_2)
 
 inbreeding_equilibria_2 %>% 
-  mutate(o = as.factor(o)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = o)) +
-  geom_line(linewidth = 0.8) + 
+  mutate(a = case_when(a == 0 ~ "a = 0",
+                       a == 0.5 ~ "a = 0.5",
+                       a == 1 ~ "a = 1")) %>% 
+  mutate(a = as.factor(a)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = a, label = a)) +
+  geom_textline(linewidth = 0.8, size = 5) + 
  # scale_colour_manual(values = c("0" = met.brewer("Kandinsky", 4)[1], "0.5" =  met.brewer("Kandinsky", 4)[2], "1" = met.brewer("Kandinsky", 4)[3])) +
   coord_cartesian(ylim = c(0, 1)) +
-  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
-       x = "r, the relatedness coefficient",
-       linetype = "Opportunity for\n kin selection") +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)',
+       linetype = expression(~italic(a)~', the intersex correlation between loci')) +
+  scale_x_continuous(expand = c(0.009, 0)) + 
+  scale_y_continuous(expand = c(0.025, 0)) +
   theme_bw() +
   theme(text = element_text(size = 14),
-        legend.position = "bottom")
+        legend.position = "none")
 ```
 
-The equations producing the slopes shown above assume that inbreeding has the same effect on every individual in the population, except that there is a difference between mating types in the transmission of certain chromosomes. 
-
 $~$
 
-### Modelling the lifecycle
-
-$~$
-
-**This is hard, but everything should be in the Kokko and Ots paper**
-
-We can now directly follow Kokko and Ots (2006), altering the equations where required to reflect the fitness consequences of inbreeding for different chromosomes. 
-
-
-::: {.callout-note appearance=minimal}
-
-## Parameter definitions
-
-
-$\delta$: fraction of offspring lost due to inbreeding (inbreeding depression)
-
-$v_I$: 'time in' reproductive value of individuals of the choosing sex
-
-$w_I$: 'time in' reproductive value of individuals of the opposite sex
-
-$v_O$: 'time out' reproductive value of individuals of the choosing sex
-
-$w_O$: 'time out' reproductive value of individuals of the opposite sex
-
-$M$: the unrelated mate encounter rate during time in (when sex ratio is unbiased)
-
-$m_v = M \sqrt{\beta}$: the mating rate for the choosy sex
-
-$m_w = \frac{M}{\sqrt{\beta}}$: the mating rate for the opposite sex
-
-$\beta$: the operational sex ratio (males:females)
-
-$a$: average number of offspring produced from a mating (**I think - needs to be found numerically**)
-
-$T_v$: time out duration for choosing sex
-
-$T_w$: time out duration for opposite sex
-
-$\mu_{Iv}$: 'time in' mortality risk of individuals of the choosing sex
-
-$\mu_{Iw}$: 'time in' mortality risk of individuals of the opposite sex
-
-$\mu_{Ov}$: 'time out' mortality risk of individuals of the choosing sex
-
-$\mu_{Ow}$: 'time out' mortality risk of individuals of the opposite sex
-
-:::
-
-After mating, offspring are produced, with a direct fitness benefit of $$a(v_I + w_I)$$
-
-
-#### Simultaneous mate choice
-
-
-The choosing sex can either mate with an unrelated individual or an individual related by $r$. 
-
-Mate with unrelated individual: $v_O + ro_iw_I + a(v_I + w_1)$
-
-Mate with kin: $v_O + ro_iw_O + (1 + ro_i)(1 - \delta)a(v_I + w_1)$
-
-We continue to frame our study around the value of $\delta$ that can be tolerated, or put another way, to what extent can inbreeding reduce offspring viability and still be the selected strategy?
-
-We therefore rearrange the equation to find the threshold value of $\delta$ where
-
-$$v_O + ro_iw_O + (1 + ro_i)(1 - \delta)a(v_I + w_1) \gt v_O + ro_iw_I + a(v_I + w_1)$$
-
-to 
-
-
-$$\delta_{sim} = 1 - \frac{a(v_I + w_I) + ro_i(w_I - w_O)}{a(1 + ro_i)(v_I + w_I)}$$
-which can be more neatly expressed as
-
-$$\delta_{sim} = \frac{a ro_i(v_I + w_I) - ro_i(w_I - w_O)}{a(1 + ro_i)(v_I + w_I)}$$
-
-#### Sequential choice
-
-In this scenario, a choosy individual (**note that our models are framed around the strategy adopted by the choosy individuals**) encounters a single potential mate, related by $r$. The choosing sex can either mate with this individual or elect not to mate and wait for a future opportunity. 
-
-Not mating produces the inclusive fitness:
-
-$$v_I + ro_iw_I$$
-Now an inbreeding preference strategy is favoured where
-
-$$v_O + ro_iw_O + (1 + ro_i)(1 - \delta)a(v_I + w_1) \gt v_I + ro_iw_I$$
-
-
-Thus, the threshold $\delta$ value below which inbreeding is adaptive is 
-
-
-$$\delta_{seq} = 1 - \frac{(v_I - v_O) + ro_i(w_I - w_O)}{a(1 + ro_i)(v_I + w_I)}$$
-$~$
-
-### Calculating reproductive value
-
-$~$
-
-$$\begin{bmatrix}dv_I/dt\\
-dv_O/dt\\
-dw_I/dt\\
-dw_O/dt
-\end{bmatrix} =
-
-\begin{bmatrix}-\mu_{Iv} + m_v(a - 1)  & m_v & am_v &  0\\
-1/T_v & 1/T_v -\mu_{Ov} & 0 & 0\\
-am_w & 0 & -\mu_{Iw} + m_w(a - 1) & m_w\\
-0 & 0 & 1/Tw & 1/T_w -\mu_{Ow}
-\end{bmatrix}
-*
-\begin{bmatrix}v_I\\
-v_O\\
-w_I\\
-w_O
-\end{bmatrix}$$
-
-
-
-```{r}
-m1 <- matrix(c(1:4), ncol = 1)
-
-m2 <- matrix(c(1:16), nrow = 4, ncol = 4)
-
-m2 %*% m1
-```
-
-
-**Create a function to calculate reproductive value for each state**
-
-```{r, eval=FALSE}
-change_repro_values <- 
-  matrix(c(-1*death_rate_in_choosy_sex + mating_rate_choosy_sex *(a - 1),
-           mating_rate_choosy_sex,
-           a*mating_rate_choosy_sex,
-           0,
-           1/time_out_duration_choosy_sex,
-           -1/time_out_duration_choosy_sex - death_rate_out_choosy_sex,
-           0,
-           0,
-           a*mating_rate_opp_sex,
-           0,
-           -1*death_rate_in_opp_sex + mating_rate_opp_sex *(a - 1),
-           mating_rate_opp_sex,
-           0,
-           0,
-           1/time_out_duration_opp_sex,
-           -1/time_out_duration_opp_sex - death_rate_out_opp_sex),
-         nrow = 4, ncol = 4)
-
-state_repro_values <- c(vI, vO, wI, wO)
-
-parameters <- 
-  expand_grid(r = 0.5,
-              x = c(0, 0.5, 1),
-              death_rate_in_choosy_sex = 1,
-              mating_rate_choosy_sex = ,
-              time_out_duration_choosy_sex = c(0.1, 0.01),
-              death_rate_out_choosy_sex = 1,
-              mating_rate_opp_sex = ,
-              death_rate_in_opp_sex = 1,
-              time_out_duration_opp_sex = ,
-              death_rate_out_opp_sex = 1,
-              a = ((mating_rate_choosy_sex*(1/time_out_duration_choosy_sex + death_rate_in_choosy_sex)/
-                      (death_rate_out_choosy_sex/time_out_duration_choosy_sex + 
-                         death_rate_in_choosy_sex*(mating_rate_choosy_sex + death_rate_out_choosy_sex)))^-1)/2
-  )
-
-```
-
-
-## A simpler approach: adapted from Parker 1979
+## Differences between the sexes beyond genetic architecture
 
 Parker's original equations:
 
-In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a full sibling, $r = 0.5$.
+In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression.
 
 For males he found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
 
-$$N(1 - D) + \frac{1}{2}N(1-D) - cN \gt \frac{1}{2}N$$
+$$n(1 - \delta) + rn(1- \delta) - cn \gt rn$$
 
-the first term is the direct number of offspring alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing (an opportunity cost) and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he not mated at all). 
-
-Note that $D$ represents inbreeding depression (the prop of progeny production lost), which is equivalent to $\delta$ used in more recent models.
+the first term is the direct number of offspring alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he forgone mating). 
 
 $c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males contribute only sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c = 0$. 
 
-If we wish to find the conditions under which male inbreeding is favoured for all levels of relatedness, $r$ can be substituted into the equation:
+We add the $a$ variable to the equation and letting $n = 1$, simplify to
 
-$$N(1 - D) + rN(1-D) - cN \gt rN$$
+$$(1-\delta) + ra(1-\delta) - c \gt ra$$
 
-into which we can add the $o$ variable and simplify to
+We can again find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy:
 
-$$(1-D) + ro_i(1-D) - c \gt ro_i$$
+$$\delta_{male} = \frac{1 - c}{1 + ra}$$
 
 Parker then modelled the condition for **females** to prefer incestuous matings when also presented with an outcrossing opportunity. 
 
 
-$$N(1 - D) + rN(1-D) - crN \gt N$$
+$$n(1 - \delta) + rn(1-\delta) - crn \gt n$$
 which we can write as
 
-$$(1-D) + ro_i(1-D) - ro_ic \gt 1$$
+$$(1-\delta) + ra(1-\delta) - rac \gt 1$$
 
-As we have above, lets find the inbreeding threshold above which incestuous mating is maladaptive.
+the inbreeding depression threshold is
 
-First for males
+$$\delta_{female} = \frac{ra - rac}{1 + ra}$$
+Note that when $c = 0$, this is equivalent to the $\delta$ threshold found by Kokko and Ots (2006).
 
-$$\delta_{male} = \frac{1 - c}{1 + ro_i}$$
-
-and for females
-
-$$\delta_{female} = \frac{ ro_i - ro_ic}{1 + ro_i}$$
-Plot the relationship between $r$ and $\delta$ for several values of $c$
+Plot the relationship between $r$ and $\delta$ for several values of $c$ and $a$
 
 ```{r}
 
 # note: map2 can only handle two arguments, so for now I set c = 0
 
-inbreeding_threshold_function_female <- function(r, o){
-  (r*o - r*o*0) / (r*o + 1)}
+Parker_cost_data <- 
+  expand_grid(r = seq(from = 0, to = 1, by = 0.01),
+              a = c(0, 0.5, 1),
+              c = c(0, 0.5, 0.9),
+              Sex = c("Female", "Male")) %>% 
+  mutate(inbreeding_depression = case_when(Sex == "Female" ~ (r*a - r*a*c) / (r*a + 1),
+                                           Sex == "Male" ~ (1 - c) / (r*a + 1)))
 
-
-parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
-                          o = c(0, 0.5, 1))
-
-inbreeding_threshold_female <- 
-  map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
-           inbreeding_threshold_function_female) %>% 
-  rename(inbreeding_depression = r) %>% 
-  bind_cols(parameters_2) %>% 
-  mutate(Sex = "Female")
-
-# now build a function for males
-
-inbreeding_threshold_function_male <- function(r, o){
-  (1 - 0) / (r*o + 1)}
-
-inbreeding_threshold_male <- 
-  map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
-           inbreeding_threshold_function_male) %>% 
-  rename(inbreeding_depression = r) %>% 
-  bind_cols(parameters_2) %>% 
-  mutate(Sex = "Male")
-
-sex_specific_inbreeding_thresholds <- 
-  bind_rows(inbreeding_threshold_female, inbreeding_threshold_male)
-
-# plot style 1
-
-p1 <- 
-  sex_specific_inbreeding_thresholds %>% 
-  mutate(o = as.factor(o)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = o, colour = Sex)) +
+  Parker_cost_data %>% 
+  mutate(a = as.factor(a)) %>% 
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = a, colour = Sex)) +
   geom_line(linewidth = 0.9) + 
-  scale_colour_manual(values = c("Female" = met.brewer("Java", 5)[2], "Male" =  met.brewer("Java", 5)[5])) +
+  scale_colour_manual(values = c("Female" = met.brewer("Peru1", 6)[2], "Male" =  met.brewer("Peru1", 6)[3])) +
   coord_cartesian(ylim = c(0, 1)) +
-  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
-       x = "r, the relatedness coefficient",
-       linetype = "Opportunity for\n kin selection",
-       subtitle = "c = 0") +
+  labs(y = expression(delta), 
+       x = expression(italic("r")),
+       linetype = expression(italic("a"))) +
+  scale_x_continuous(expand = c(0.009, 0)) + 
+  scale_y_continuous(expand = c(0.01, 0)) +
+  facet_wrap(~c, nrow = 3, labeller = label_glue('Male mating investment (c): {c}')) +
   theme_bw() +
   theme(text = element_text(size = 14),
-        legend.position = "bottom")
+        strip.background = element_rect(fill = "Aliceblue", linewidth = .5))
 
-p1
-
-# plot style 2
-
-p1b <- 
-  sex_specific_inbreeding_thresholds %>% 
-  mutate(o = as.factor(o)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = Sex)) +
-  geom_line(linewidth = 0.8) + 
- # scale_colour_manual(values = c("0" = met.brewer("Kandinsky", 4)[1], "0.5" =  met.brewer("Kandinsky", 4)[2], "1" = met.brewer("Kandinsky", 4)[3])) +
-  coord_cartesian(ylim = c(0, 1)) +
-  facet_wrap(~o) +
-  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
-       x = "r, the relatedness coefficient")+#,
-       #linetype = "Opportunity for\n kin selection") +
-  theme_bw() +
-  theme(text = element_text(size = 14),
-        legend.position = "bottom")
 ```
+
+## Quantifying the costs of mating (and not mating) using simulation
+
+Parker's $c$ value offers a simple, intuitive way to model the cost of mating for males relative to females. However, other methods better capture the dynamics of real populations, where both sexes also run the risk of going unmated. To incorporate both costs of mating and matelessness, we simulate the fitness consequences of following an inbreeding preference or avoidance strategy in a sexually reproducing population where the opportunity for mating is finite. Specifically, we simulate fitness under both conditions for every individual in the population, where each individual is considered independently. 
+
+A very important point is that we consider a population where the resident strategy is to accept mating with a relative. Our simulation therefore estimates the condition required for inbreeding _avoidance_ to invade. One consequence of inbreeding avoidance is an increased risk of going unmated for both sexes when they forego mating with a relative, particularly when the cost of mating for males is large, or search efficiency is low.
+
+### Produce a sample of lifespans
+
+Following Ekrem and Kokko (2023), we simulate the reproductive lifespans of `N` individuals in a single generation. We assume all individuals enter the breeding pool at arbitrary time zero and that from this point onwards, mortality events are drawn from an exponential distribution with $\mu_F$ and $\mu_M$ for females (`female_death_rate`) and males (`male_death_rate`) respectively. The chance of mortality is therefore constant across the reproductive lifespan for each sex. For simplicity, $\mu_F = \mu_M = 0.2$ in the simulation run documented here. 
+
+```{r}
+
+# set some basic parameters that likely won't change
+
+Population_size <- 2000
+
+Female_death_rate <- 0.2
+
+Male_death_rate <- 0.2
+
+n <- 1 # avg progeny produced as a result of mating event 
+
+# build the function to find individual lifespans
+
+lifespan_sampler <-
+  function(seed, pop_size, death_rate, Sex){
+    set.seed(seed)
+    # death times are drawn from an exponential distribution  
+    rexp(n = pop_size, rate = death_rate) %>% 
+      as_tibble() %>%
+      mutate(Individual_ID = as.factor(1:n()),
+             Sex = Sex)
+  }
+
+Male_lifespan <- 
+  lifespan_sampler(seed = 1, pop_size = Population_size/2, 
+                   death_rate = Female_death_rate, Sex = "Male") %>% 
+  rename(Male_ID = Individual_ID,
+         Male_lifespan = value)
+
+Female_lifespan <- 
+  lifespan_sampler(seed = 2, pop_size = Population_size/2, 
+                   death_rate = Male_death_rate, Sex = "Female") %>% 
+  rename(Female_ID = Individual_ID,
+         Female_lifespan = value)
+
+```
+
+A sample of `N = 1000` female reproductive lifespans is shown below.
+
+```{r}
+Female_lifespan %>% 
+  ggplot(aes(x = Female_lifespan)) +
+  stat_halfeye(fill = met.brewer("VanGogh3", n = 8)[3], .width = c(0.66, 0.95), alpha = 1,
+               point_interval = "median_qi", point_fill = "white", 
+               shape = 21, point_size = 4, stroke = 1.5) +
+  labs(y = "Relative frequency", subtitle = "Death rate = 0.2",
+       x = expression('Female reproductive lifespan (Time,'~italic(t)~')')) +
+  scale_x_continuous(expand = c(0, 0)) + 
+  #scale_y_continuous(expand = c(0, 0)) + 
+  theme_bw() + 
+  theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none", #transparent legend panel
+        text = element_text(size=14))
+```
+
+
+### Create a candidate list of mating events
+
+With individual reproductive lifespans known, we can then calculate time stamps for every possible female-male encounter for this set of individuals. This process follows mass action law, where the population-wide rate of female-male encounters at any time point, $t$, is equal to the female density multiplied by the male density at any time $t$, scaled by a constant $v$. `v` represents the search efficiency of males in the population, where higher values indicate more efficient mate finding. For each focal male, the time to finding each specific female is drawn from a negative exponential distribution, with rate $\frac{v}{N/2}$. The end result is a complete schedule of female-male interactions across the breeding cycle.
+
+Here, we set `N=2000` and find the encounter time for the $1000^2$ possible female-male encounters.
+
+`v` is one of the parameters that we can vary to change the risk of an individual going unmated. Here, we create candidate lists of mating events where $v = 1$, $v =10$, $v = 100$ and $v = 1000$ (where this last value equates to a search efficiency five times the death rate when population size = 2000).
+
+```{r}
+Female_pop_size <- Population_size*0.5
+Male_pop_size <- Population_size*0.5
+
+candidate_timestamp_finder <-
+  function(seed, candidates, v){
+    set.seed(seed)
+    expand_grid(Female_ID = as.factor(1:Female_pop_size),
+                Male_ID = as.factor(1:Male_pop_size)) %>% 
+      bind_cols(
+        rexp(n = candidates, rate = (v/(Female_pop_size))) %>%
+          as_tibble() %>% 
+          rename(Mate_encounter_time_stamp = value) %>% 
+          mutate(v = as.factor(v))
+      ) %>% 
+      left_join(Male_lifespan %>% select(-Sex), by = "Male_ID") %>% 
+      left_join(Female_lifespan %>% select(-Sex), by = "Female_ID")
+  }
+
+# create candidate lists
+
+candidate_list1 <- 
+  candidate_timestamp_finder(seed = 3, candidates = Female_pop_size*Male_pop_size,
+                             v = 1)
+
+candidate_list10 <- 
+  candidate_timestamp_finder(seed = 3, candidates = Female_pop_size*Male_pop_size,
+                             v = 10)
+
+candidate_list100 <- 
+  candidate_timestamp_finder(seed = 3, candidates = Female_pop_size*Male_pop_size,
+                             v = 100)
+
+candidate_list1000 <- 
+  candidate_timestamp_finder(seed = 3, candidates = Female_pop_size*Male_pop_size,
+                             v = 1000)
+
+```
+
+The plots below show the distribution of candidate mating encounters, trimmed to only show encounters set to occur within the maximum reproductive lifespan of females. Note that mate searching is very inefficient when $v = 1$ or $v = 10$, giving the appearance of a constant number of encounters over time, irrespective of the density of potential mates. 
+
+```{r}
+
+bind_rows(candidate_list1, candidate_list10, candidate_list100, candidate_list1000) %>% 
+  filter(Mate_encounter_time_stamp < max(Female_lifespan)) %>% 
+  ggplot(aes(x = Mate_encounter_time_stamp, y = as.factor(v))) +
+  stat_halfeye(fill = met.brewer("VanGogh3", n = 8)[3], .width = c(0.66, 0.95), alpha = 1,
+               point_interval = "median_qi", point_fill = "white", 
+               shape = 21, point_size = 4, stroke = 1.5) +
+  labs(x= "Time of female-male encounters in population",
+       y = expression('Mate searching efficiency, '~italic(v))) +
+  scale_x_continuous(expand = c(0, 0)) + 
+  #scale_y_continuous(expand = c(0, 0)) + 
+  theme_bw() + 
+  theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none", #transparent legend panel
+        text = element_text(size=14))
+```
+
+
+### Trim candidates to create the mating schedule
+
+Next, we trim the list of encounters down to the realised number of mating events that occur in the population. First, we remove the temporally impossible encounters that are set to occur after the death of one of the interacting individuals. 
+
+For simplicity, we assume that females are monandrous and that while males can mate with multiple females, each mating has an associated cost. Examples of such costs include sperm-limitation, courtship displays that diminish condition or post-copulatory investment of resources into reproduction via mate guarding or parental care. We simulate this cost by setting a maximum limit, $C$ for the number of matings a male can attain. Low values of $C$ indicate that mating is costly, whereas high values indicate that a male's future mating prospects are relatively unaffected by a current mating opportunity. Virgin females are therefore receptive to mating with the first receptive male they encounter (with one important exception; see below) but otherwise unreceptive, while males are receptive to all matings (with the same exception alluded to above) until attained matings = $C$. Low values of $C$ (especially when paired with small $v$) increase the likelihood of matelessness. 
+
+```{r}
+candidate_list1 <-
+  candidate_list1 %>% 
+  filter(Female_lifespan > Mate_encounter_time_stamp & 
+           Male_lifespan > Mate_encounter_time_stamp)
+
+candidate_list10 <-
+  candidate_list10 %>% 
+  filter(Female_lifespan > Mate_encounter_time_stamp & 
+           Male_lifespan > Mate_encounter_time_stamp)
+
+candidate_list100 <-
+  candidate_list100 %>% 
+  filter(Female_lifespan > Mate_encounter_time_stamp & 
+           Male_lifespan > Mate_encounter_time_stamp)
+
+candidate_list1000 <- 
+  candidate_list1000 %>% 
+  filter(Female_lifespan > Mate_encounter_time_stamp & 
+           Male_lifespan > Mate_encounter_time_stamp)
+
+
+candidate_list_set <- list(candidate_list1, candidate_list10, candidate_list100, 
+                            candidate_list1000)
+
+# the inputs to this function are a candidate list dataframe to trim and a value of C
+
+# To trim the list, for each female we find the rank order of encounters with the min_rank() function. We then do the same for each male. Using this information we then mark encounters that occur between receptive individuals as a mating event.  
+
+complete_mating_schedule <- function(data, C){
+  data %>%
+    group_by(Female_ID) %>% 
+    mutate(Female_encounter_order = min_rank(Mate_encounter_time_stamp)) %>% 
+    ungroup() %>% 
+    group_by(Male_ID) %>% 
+    mutate(Male_encounter_order = min_rank(Mate_encounter_time_stamp)) %>%
+    ungroup() %>% 
+    mutate(Mating_occurred = case_when(Female_encounter_order == 1 &
+                                         Male_encounter_order <= C ~ "YES",
+                                       .default = "NO"),
+           C = as.factor(C))
+}
+
+# run the function for each value of C
+
+mating_schedule1 <- candidate_list_set %>%  map_dfr(\(df) complete_mating_schedule(C = 1, data = df))
+mating_schedule2 <- candidate_list_set %>%  map_dfr(\(df) complete_mating_schedule(C = 2, data = df))
+mating_schedule3 <- candidate_list_set %>%  map_dfr(\(df) complete_mating_schedule(C = 3, data = df))
+mating_schedule4 <- candidate_list_set %>%  map_dfr(\(df) complete_mating_schedule(C = 4, data = df))
+mating_schedule20 <- candidate_list_set %>%  map_dfr(\(df) complete_mating_schedule(C = 20, data = df))
+
+
+mating_schedule <- bind_rows(mating_schedule1, mating_schedule2, mating_schedule3,
+                             mating_schedule4, mating_schedule20)
+
+```
+
+### Implementing inbreeding
+
+We assume that each female's first potential mating encounter occurs with a relative of relatedness $r$ and all subsequent encounters occur with unrelated individuals ($r = 0$; where relatedness is relative to the mean relatedness in the population). While clearly a simplification of reality, this assumption is not unreasonable, as individuals of many species often start life in the same location as their kin, and may remain in the general proximity of their natal range for much of their lives i.e. many species display high population viscosity.
+
+To simulate the fitness consequences of inbreeding, we first consider a scenario where virgin females are not choosy, and therefore when virgin are receptive to mating with their relatives. Males also mate freely with any receptive female, until they reach $C$. We then track the fitness consequences of mating incestuously. 
+
+We calculate the fitness of an allele present in a female from the incestuous mating as
+
+$$n(1 - \delta) + ran(1- \delta)$$
+and any inclusive fitness gained throughout the remainder of the life cycle as
+
+$$ran(C_{realised} - 1)$$
+
+where $C_{realised} - 1$ is the number of additional matings accrued by the focal male. **yep C_realised is a bad name for future reproductive value, but just a placeholder for now**
 
 
 ```{r}
 
-# note: map2 can only handle two arguments, so for now I set c = 0
+resolution <- 25
 
-inbreeding_threshold_function_female_0.5 <- function(r, o){
-  (r*o - r*o*0.5) / (r*o + 1)}
+# Find interactions where mating occurred - because we are interested in the fitness consequences of choosing to inbreed, only cases where breeding is possible are relevant for the success of the strategy. Note that this trims the dataframe from 4.8 million rows to ~15k.
 
+matings <- mating_schedule %>% filter(Mating_occurred == "YES")
 
-parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
-                          o = c(0, 0.5, 1))
+# updated with latest parameters
 
-inbreeding_threshold_female_0.5 <- 
-  map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
-           inbreeding_threshold_function_female_0.5) %>% 
-  rename(inbreeding_depression = r) %>% 
-  bind_cols(parameters_2) %>% 
-  mutate(Sex = "Female")
+parameters <- 
+  expand_grid(
+    r = seq(0, 1, length = resolution),
+    a = c(0, 0.5, 1), 
+    D = seq(0, 1, length = resolution), # D represents inbreeding depression
+    n = 1, # remove eventually if we decide coding as 1 works
+    Female_ID = as.factor(1:Female_pop_size))
 
-# now build a function for males
+inbreeding_fitness <- 
+  matings %>% # only breeding females used 
+  group_by(Male_ID, v, C) %>% 
+  mutate(inbreeding_male_matings = n()) %>% # find the number of time each male mates
+  ungroup() %>%
+  select(Female_ID, Male_ID, inbreeding_male_matings, v, C) %>% 
+  left_join(parameters, by = "Female_ID", relationship = "many-to-many") %>% # add the parameters
+  mutate(fitness_inbred_mating = (1 - D)*n + r*a*(1-D)*n,
+         cyto_male_inbred_fitness = r*a*(1-D)*n, # add the case for cytoplasmic alleles in males
+         # future fitness is accrued by the male relative. The inbreeding_male_matings variable includes the inbred mating, which has already been counted, therefore we subtract 1
+         f_future_fitness = r*a*n*(inbreeding_male_matings - 1),#*(1- c), 
+         female_inbred_fitness = fitness_inbred_mating + f_future_fitness,
+         # now male fitness from inbreeding
+         m_future_fitness = n*(inbreeding_male_matings - 1),#*(1 - c),
+         male_inbred_fitness = fitness_inbred_mating + m_future_fitness) %>% 
+  rename(Focal_female = Female_ID,
+         Focal_male = Male_ID)
 
-inbreeding_threshold_function_male_0.5 <- function(r, o){
-  (1 - 0.5) / (r*o + 1)}
-
-inbreeding_threshold_male_0.5 <- 
-  map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
-           inbreeding_threshold_function_male_0.5) %>% 
-  rename(inbreeding_depression = r) %>% 
-  bind_cols(parameters_2) %>% 
-  mutate(Sex = "Male")
-
-sex_specific_inbreeding_thresholds_0.5 <- 
-  bind_rows(inbreeding_threshold_female_0.5, inbreeding_threshold_male_0.5)
-
-# plot style 1
-
-p2 <- 
-  sex_specific_inbreeding_thresholds_0.5 %>% 
-  mutate(o = as.factor(o)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = o, colour = Sex)) +
-  geom_line(linewidth = 0.9) + 
-  scale_colour_manual(values = c("Female" = met.brewer("Java", 5)[2], "Male" =  met.brewer("Java", 5)[5])) +
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
-       x = "r, the relatedness coefficient",
-       linetype = "Opportunity for\n kin selection",
-       subtitle = "c = 0.5") +
-  theme_bw() +
-  theme(text = element_text(size = 14),
-        legend.position = "bottom")
-
-p2
 ```
+
+### Implementing inbreeding avoidance
+
+We now consider a scenario where individuals forego mating with their kin. For each female-male pair that mated incestuously, we calculate fitness when they instead follow an outbreeding strategy by: 
+
+1. Removing the first receptive mating in each females schedule i.e. inbreeding is avoided.
+
+2. Recapitulating the mating schedule (as rejecting a mating opportunity has flow on effects for the population).
+
+3. Re-deriving female and male fitness across the parameter space. 
+
+$w_{female} = n + ran(C_{realised})$
+
+$w_{male} = nC_{realised} + ran$
+
+We complete steps 1-3 for each female-male pair, rather than simply removing all the first matings from the population in a single iteration. This is because we are simulating the fitness consequences of avoiding inbreeding when this strategy is rare, rather than when the entire population does so. **The conditions present at the onset of invasion is something to discuss**.
+
+Build the functions to calculate outbred fitness
 
 ```{r}
 
-# note: map2 can only handle two arguments, so for now I set c = 0
+outbred_parameters <- expand_grid(r = seq(0, 1, length = resolution),
+                                  a = c(0, 0.5, 1))
 
-inbreeding_threshold_function_female_0.9 <- function(r, o){
-  (r*o - r*o*0.9) / (r*o + 1)}
+outbreeding_fitness_function <- function(female, data, search_efficiency, m_mate_limit){
+  
+  cols <- tibble(female_matings = 0, male_matings = 0) #
+  
+  data %>% 
+    filter(v == search_efficiency) %>%
+    mutate(Focal_female = as.character(female), # find the focal female
+           Focal_male = Male_ID[which(Female_ID == Focal_female & 
+                                        Mating_occurred == "YES")]) %>% # find the focal male  
+    filter(Female_ID != female | Mating_occurred != "YES") %>% # remove the mating between focal individuals 
+    select(-c(C, Female_encounter_order, Male_encounter_order, Mating_occurred)) %>% 
+    complete_mating_schedule(C = m_mate_limit) %>% # recapitulate the mating schedule 
+    filter(Female_ID == Focal_female | Male_ID == Focal_male, # find future mating events for the focal individuals
+           Mating_occurred == "YES") %>% 
+    select(Female_ID, Focal_female, Male_ID, Focal_male, v, C) %>% 
+    mutate(Future_mating = case_when(Female_ID == Focal_female ~ "female_matings", # identify female future mating 
+                                     Male_ID == Focal_male ~ "male_matings", # identify male future mating
+                                     .default = "None")) %>% # this is a failsafe, not essential
+    add_count(Future_mating, name = "matings") %>% # count the future matings
+    distinct(Future_mating, .keep_all = T) %>% # only include one row for each focal pair
+    select(Focal_female, Focal_male, Future_mating, matings, v, C) %>% 
+    pivot_wider(names_from = Future_mating, values_from = matings) %>%
+    add_column(!!!cols[!names(cols) %in% names(.)]) %>% # if female_matings or male_matings doesn't exist (0 future matings), add the appropriate column from the cols object
+    add_row(Focal_female = "0", Focal_male = "0", v = as.character(search_efficiency), # when neither focal finds a new mate, the simulation fails. To stop this we add this placeholder row which we can later delete.
+            C = as.character(m_mate_limit), male_matings = 0, female_matings = 0) %>% 
+    expand_grid(outbred_parameters) %>% # add the parameter space which was created above 
+    mutate(female_outbred_fitness = n * female_matings + r*a*n*male_matings, # find female fitness
+           male_outbred_fitness = n * male_matings + r*a*n*female_matings,
+           cyto_male_outbred_fitness = 0 * male_matings + r*a*n*female_matings) # find cytoplasmic male fitness
+}
+
+# build a function to add the unmated indviduals to the outbred fitness tibble, we'll need this below
+
+add_unmated_focals <- function(data, breeder_data){
+  breeder_data %>% 
+    anti_join(data) %>% # find the females that are in the original breeder data but not the outbred breeding data
+    expand_grid(outbred_parameters) %>% # fill parameter values for these cases
+    mutate(female_matings = 0,
+           male_matings = 0,
+           female_outbred_fitness = 0,
+           male_outbred_fitness = 0,
+           cyto_male_outbred_fitness = 0) %>% 
+    bind_rows(data)
+}
+
+```
+
+**Run the functions - this is inefficient but it works for a single gen**
+
+```{r}
+
+# If Run_function = TREU, run the function for the desired parameter space and save to local. If FALSE, just load the results from local
+
+Run_function <- FALSE
+
+if(Run_function){  
+  
+  # Find the breeders for each original mating schedule
+  
+  Breeders <- mating_schedule %>% 
+    rename(Focal_female = Female_ID, Focal_male = Male_ID) %>% 
+    filter(Mating_occurred == "YES") %>%
+    #mutate(Female_ID = as.character(Female_ID)) %>% 
+    select(Focal_female, Focal_male, C, v)
+  
+  Breeders1 <- Breeders %>% filter(C == 1, v == 1) 
+  
+  list1 <- as.list(Breeders1$Focal_female)
+  
+  Breeders2 <- Breeders %>% filter(C == 1, v == 10) 
+  
+  list2 <- as.list(Breeders2$Focal_female)
+  
+  Breeders3 <- Breeders %>% filter(C == 1, v == 100) 
+  
+  list3 <- as.list(Breeders3$Focal_female)
+  
+  Breeders4 <- Breeders %>% filter(C == 1, v == 1000) 
+  
+  list4 <- as.list(Breeders4$Focal_female)
+  
+  Breeders5 <- Breeders %>% filter(C == 2, v == 1) 
+  
+  list5 <- as.list(Breeders5$Focal_female)
+  
+  Breeders6 <- Breeders %>% filter(C == 2, v == 10) 
+  
+  list6 <- as.list(Breeders6$Focal_female)
+  
+  Breeders7 <- Breeders %>% filter(C == 2, v == 100) 
+  
+  list7 <- as.list(Breeders7$Focal_female)
+  
+  Breeders8 <- Breeders %>% filter(C == 2, v == 1000) 
+  
+  list8 <- as.list(Breeders8$Focal_female)
+  
+  Breeders9 <- Breeders %>% filter(C == 3, v == 1) 
+  
+  list9 <- as.list(Breeders9$Focal_female)
+  
+  Breeders10 <- Breeders %>% filter(C == 3, v == 10) 
+  
+  list10 <- as.list(Breeders10$Focal_female)
+  
+  Breeders11 <- Breeders %>% filter(C == 3, v == 100) 
+  
+  list11 <- as.list(Breeders11$Focal_female)
+  
+  Breeders12 <- Breeders %>% filter(C == 3, v == 1000) 
+  
+  list12 <- as.list(Breeders12$Focal_female)
+  
+  Breeders13 <- Breeders %>% filter(C == 4, v == 1) 
+  
+  list13 <- as.list(Breeders13$Focal_female)
+  
+  Breeders14 <- Breeders %>% filter(C == 4, v == 10) 
+  
+  list14 <- as.list(Breeders14$Focal_female)
+  
+  Breeders15 <- Breeders %>% filter(C == 4, v == 100) 
+  
+  list15 <- as.list(Breeders15$Focal_female)
+  
+  Breeders16 <- Breeders %>% filter(C == 4, v == 1000) 
+  
+  list16 <- as.list(Breeders16$Focal_female)
+  
+  Breeders17 <- Breeders %>% filter(C == 20, v == 1) 
+  
+  list17 <- as.list(Breeders17$Focal_female)
+  
+  Breeders18 <- Breeders %>% filter(C == 20, v == 10) 
+  
+  list18 <- as.list(Breeders18$Focal_female)
+  
+  Breeders19 <- Breeders %>% filter(C == 20, v == 100) 
+  
+  list19 <- as.list(Breeders19$Focal_female)
+  
+  Breeders20 <- Breeders %>% filter(C == 20, v == 1000) 
+  
+  list20 <- as.list(Breeders20$Focal_female)
+  
+  C1v1 <- 
+    map_dfr(list1, outbreeding_fitness_function, data = mating_schedule1, 
+            search_efficiency = 1, m_mate_limit = 1) %>% 
+    filter(Focal_female != "0") # this step removes the added_row for pairs that both failed to breed.
+  
+  C1v10 <- 
+    map_dfr(list2, outbreeding_fitness_function, data = mating_schedule1, 
+            search_efficiency = 10, m_mate_limit = 1) %>% 
+    filter(Focal_female != "0")
+  
+  C1v100 <- 
+    map_dfr(list3, outbreeding_fitness_function, data = mating_schedule1, 
+            search_efficiency = 100, m_mate_limit = 1) %>% 
+    filter(Focal_female != "0")
+  
+  C1v1000 <- 
+    map_dfr(list4, outbreeding_fitness_function, data = mating_schedule1, 
+            search_efficiency = 1000, m_mate_limit = 1) %>% 
+    filter(Focal_female != "0")
+  
+  C2v1 <- 
+    map_dfr(list5, outbreeding_fitness_function, data = mating_schedule2, 
+            search_efficiency = 1, m_mate_limit = 2) %>% 
+    filter(Focal_female != "0")
+  
+  C2v10 <- 
+    map_dfr(list6, outbreeding_fitness_function, data = mating_schedule2, 
+            search_efficiency = 10, m_mate_limit = 2) %>% 
+    filter(Focal_female != "0")
+  
+  C2v100 <- 
+    map_dfr(list7, outbreeding_fitness_function, data = mating_schedule2, 
+            search_efficiency = 100, m_mate_limit = 2) %>% 
+    filter(Focal_female != "0")
+  
+  C2v1000 <- 
+    map_dfr(list8, outbreeding_fitness_function, data = mating_schedule2, 
+            search_efficiency = 1000, m_mate_limit = 2) %>% 
+    filter(Focal_female != "0")
+  
+  C3v1 <- 
+    map_dfr(list9, outbreeding_fitness_function, data = mating_schedule3, 
+            search_efficiency = 1, m_mate_limit = 3) %>% 
+    filter(Focal_female != "0")
+  
+  C3v10 <- 
+    map_dfr(list10, outbreeding_fitness_function, data = mating_schedule3, 
+            search_efficiency = 10, m_mate_limit = 3) %>% 
+    filter(Focal_female != "0")
+  
+  C3v100 <- 
+    map_dfr(list11, outbreeding_fitness_function, data = mating_schedule3, 
+            search_efficiency = 100, m_mate_limit = 3) %>% 
+    filter(Focal_female != "0")
+  
+  C3v1000 <- 
+    map_dfr(list12, outbreeding_fitness_function, data = mating_schedule3, 
+            search_efficiency = 1000, m_mate_limit = 3) %>% 
+    filter(Focal_female != "0")
+  
+  C4v1 <- 
+    map_dfr(list13, outbreeding_fitness_function, data = mating_schedule4, 
+            search_efficiency = 1, m_mate_limit = 4) %>% 
+    filter(Focal_female != "0")
+  
+  C4v10 <- 
+    map_dfr(list14, outbreeding_fitness_function, data = mating_schedule4, 
+            search_efficiency = 10, m_mate_limit = 4) %>% 
+    filter(Focal_female != "0")
+  
+  C4v100 <- 
+    map_dfr(list15, outbreeding_fitness_function, data = mating_schedule4, 
+            search_efficiency = 100, m_mate_limit = 4) %>% 
+    filter(Focal_female != "0")
+  
+  C4v1000 <- 
+    map_dfr(list16, outbreeding_fitness_function, data = mating_schedule4, 
+            search_efficiency = 1000, m_mate_limit = 4) %>% 
+    filter(Focal_female != "0")
+  
+  C20v1 <- 
+    map_dfr(list17, outbreeding_fitness_function, data = mating_schedule20, 
+            search_efficiency = 1, m_mate_limit = 20) %>% 
+    filter(Focal_female != "0")
+  
+  C20v10 <- 
+    map_dfr(list18, outbreeding_fitness_function, data = mating_schedule20, 
+            search_efficiency = 10, m_mate_limit = 20) %>% 
+    filter(Focal_female != "0")
+  
+  C20v100 <- 
+    map_dfr(list19, outbreeding_fitness_function, data = mating_schedule20, 
+            search_efficiency = 100, m_mate_limit = 20) %>% 
+    filter(Focal_female != "0")
+  
+  C20v1000 <- 
+    map_dfr(list20, outbreeding_fitness_function, data = mating_schedule20, 
+            search_efficiency = 1000, m_mate_limit = 20) %>% 
+    filter(Focal_female != "0")
+  
+  #The function above only calculates fitness for individuals where they or their relative successfully mate at least once after foregoing an incestuous mating. However, all individuals producing offspring in the inbreeding acceptance scenario  need to be accounted for in order to evaluate the fitness consequences of inbreeding relative to inbreeding avoidance. Use the add_unmated_focals() function to fix this
+  
+  outbred1 <- add_unmated_focals(C1v1, Breeders1)
+  outbred2 <- add_unmated_focals(C1v10, Breeders2)
+  outbred3 <- add_unmated_focals(C1v100, Breeders3)
+  outbred4 <- add_unmated_focals(C1v1000, Breeders4)
+  outbred5 <- add_unmated_focals(C2v1, Breeders5)
+  outbred6 <- add_unmated_focals(C2v10, Breeders6)
+  outbred7 <- add_unmated_focals(C2v100, Breeders7)
+  outbred8 <- add_unmated_focals(C2v1000, Breeders8)
+  outbred9 <- add_unmated_focals(C3v1, Breeders9)
+  outbred10 <- add_unmated_focals(C3v10, Breeders10)
+  outbred11 <- add_unmated_focals(C3v100, Breeders11)
+  outbred12 <- add_unmated_focals(C3v1000, Breeders12)
+  outbred13 <- add_unmated_focals(C4v1, Breeders13)
+  outbred14 <- add_unmated_focals(C4v10, Breeders14)
+  outbred15 <- add_unmated_focals(C4v100, Breeders15)
+  outbred16 <- add_unmated_focals(C4v1000, Breeders16)
+  outbred17 <- add_unmated_focals(C20v1, Breeders17)
+  outbred18 <- add_unmated_focals(C20v10, Breeders18)
+  outbred19 <- add_unmated_focals(C20v100, Breeders19)
+  outbred20 <- add_unmated_focals(C20v1000, Breeders20)
+  
+  outbreeding_fitness <- 
+    bind_rows(outbred1, outbred2, outbred3, outbred4, outbred5, outbred6, outbred7, 
+              outbred8, outbred9, outbred10, outbred11, outbred12, outbred13, outbred14,
+              outbred15, outbred16, outbred17, outbred18, outbred19, outbred20)
+  write_csv(outbreeding_fitness, file = "results/outbreeding.fitness_compact.csv")
+  
+} else outbreeding_fitness <- read_csv("results/outbreeding.fitness_compact.csv")
+```
+
+Finally, we combine the `inbreeding_fitness` and `outbreeding_fitness` dataframes. `inbreeding_fitness` has >115 million rows, which is 50 times as many as `outbreeding_fitness`, due to the inclusion of $\delta$ in its explored parameter space.
+
+Whether selection favours inbreeding at a particular parameter space, in a particular sex, is found by subtracting outbreeding fitness from inbreeding fitness, for each female-male encounter. For each parameter space, we then find the mean value for all interactions.      
+
+```{r}
+results <-
+  inbreeding_fitness  %>% 
+  select(-inbreeding_male_matings) %>% 
+  left_join(
+    outbreeding_fitness %>% 
+      mutate(across(Focal_female:v, ~ as.factor(.x)))) %>%
+  
+  group_by(v, C, D, r, a) %>%
+  summarise(female_inbred_fitness = mean(female_inbred_fitness),
+            male_inbred_fitness = mean(male_inbred_fitness),
+            cyto_male_inbred_fitness = mean(cyto_male_inbred_fitness),
+            female_outbred_fitness = mean(female_outbred_fitness),
+            male_outbred_fitness = mean(male_outbred_fitness),
+            cyto_male_outbred_fitness = mean(cyto_male_outbred_fitness))%>% 
+  ungroup() %>% 
+  mutate(female_fitness_contrast = female_inbred_fitness - female_outbred_fitness,
+         male_fitness_contrast = male_inbred_fitness - male_outbred_fitness,
+         cyto_male_fitness_contrast = cyto_male_inbred_fitness - cyto_male_outbred_fitness)
+
+```
+
+Find the inbreeding depression threshold for varying levels of $r$, for now discounting $a$
+
+```{r}
+f_inbreeding_maximum_function <- function(r){
+  r / (1 + r) %>% 
+    as_tibble() %>% 
+    rename(D = value)}
+
+r <- tibble(r = seq(from = 0, to = 1, by = 0.05))
+
+female_inbreeding_equilibria <- 
+  map_dfr(r, f_inbreeding_maximum_function) %>% 
+  bind_cols(r)
+
+m_inbreeding_maximum_function <- function(r){
+  1 / (1 + r) %>% 
+    as_tibble() %>% 
+    rename(D = value)}
+
+r <- tibble(r = seq(from = 0, to = 1, by = 0.05))
+
+male_inbreeding_equilibria <- 
+  map_dfr(r, m_inbreeding_maximum_function) %>% 
+  bind_cols(r)
+```
+
+### Plot the results
+
+```{r}
+pal1 <- met.brewer("OKeeffe1", n=50, direction = -1)
+pal2 <- met.brewer("Hiroshige", n=50, direction = -1)
+  
+Female_plot <-
+  results %>%
+  filter(v == 100, C != 2 & C != 4) %>% 
+  ggplot(aes(x = r, y = D)) +
+  geom_blank() +
+  geom_raster(aes(fill = female_fitness_contrast)) + 
+  stat_contour(aes(z = female_fitness_contrast*100), colour = "black", binwidth = 25,
+               breaks = c(-100, -75, -50, -25, 25, 50, 75, 100)) +
+  stat_contour(aes(z = female_fitness_contrast*100), colour = "black", breaks = 0,
+               linetype = 2) +
+  geom_line(data = female_inbreeding_equilibria, aes(x = r, y = D),
+            linetype = 3, alpha = 0.5) +
+  scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
+  facet_wrap(C ~ a, 
+             scales = "free", nrow = 3, strip.position = c("top"),
+             labeller = label_glue('C = {`C`}, a = {`a`}')) +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)',
+       fill = "Inbreeding fitness",
+       subtitle = "Alleles present in females") +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  theme(panel.border = element_rect(fill = NA, colour = "black", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
 
 
-parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
-                          o = c(0, 0.5, 1))
+Male_plot <-
+  results %>%
+  filter(v == 100, C != 2 & C != 4) %>% 
+  ggplot(aes(x = r, y = D)) +
+  geom_blank() +
+  geom_raster(aes(fill = male_fitness_contrast)) + 
+  stat_contour(aes(z = male_fitness_contrast*100), colour = "black", binwidth = 25,
+               breaks = c(-75, -50, -25, 25, 50, 75, 100)) +
+  stat_contour(aes(z = male_fitness_contrast*100), colour = "black", breaks = 0,
+               linetype = 2) +
+  geom_line(data = male_inbreeding_equilibria, aes(x = r, y = D),
+            linetype = 3, alpha = 0.5) +
+  scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
+  facet_wrap(C ~ a, 
+             scales = "free", nrow = 3, strip.position = c("top"),
+             labeller = label_glue('C = {`C`}, a = {`a`}')) +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)',
+       fill = "Inbreeding fitness",
+       subtitle = "Alleles present in males") +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
 
-inbreeding_threshold_female_0.9 <- 
-  map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
-           inbreeding_threshold_function_female_0.9) %>% 
-  rename(inbreeding_depression = r) %>% 
-  bind_cols(parameters_2) %>% 
-  mutate(Sex = "Female")
+Female_plot
 
-# now build a function for males
+Male_plot
 
-inbreeding_threshold_function_male_0.9 <- function(r, o){
-  (1 - 0.9) / (r*o + 1)}
+```
 
-inbreeding_threshold_male_0.9 <- 
-  map2_dfr(parameters_2 %>% select(r), 
-           parameters_2 %>% select(o), 
-           inbreeding_threshold_function_male_0.9) %>% 
-  rename(inbreeding_depression = r) %>% 
-  bind_cols(parameters_2) %>% 
-  mutate(Sex = "Male")
+### Plotting various forms of conflict
 
-sex_specific_inbreeding_thresholds_0.9 <- 
-  bind_rows(inbreeding_threshold_female_0.9, inbreeding_threshold_male_0.9)
+```{r}
 
-# plot style 1
+#pal2 <- met.brewer("VanGogh3", n=50, direction = 1)
 
-p3 <- 
-  sex_specific_inbreeding_thresholds_0.9 %>% 
-  mutate(o = as.factor(o)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = o, colour = Sex)) +
-  geom_line(linewidth = 0.9) + 
-  scale_colour_manual(values = c("Female" = met.brewer("Java", 5)[2], "Male" =  met.brewer("Java", 5)[5])) +
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(y = "Inbreeding depression (prop of fitness lost)\n that can be tolerated", 
-       x = "r, the relatedness coefficient",
-       linetype = "Opportunity for\n kin selection",
-       subtitle = "c = 0.9") +
-  theme_bw() +
-  theme(text = element_text(size = 14),
-        legend.position = "bottom")
+make_conflict_plot <- 
+  function(data, enter_subtitle){
+    data %>%
+      #mutate(C = as.numeric(C)) %>% 
+      ggplot(aes(x = r, y = D)) +
+      geom_blank() +
+      geom_tile(aes(fill = sexual_conflict_updated)) + 
+     # stat_contour(aes(z = sexual_conflict_updated), colour = "black",
+      #      breaks = c(-.10, -.20, -.30, -.40, -.50, -.60, -.70, -.80, -.90, -.100,
+       #                .10, .20, .30, .40, .50, .60, .70, .80, .90, .100),
+        #    upright = TRUE) +
+      #stat_contour(aes(z = sexual_conflict*100), colour = "black", breaks = 0,
+       #    linetype = 2) +
+      scale_fill_gradientn(colours = pal1, limits = c(-1, 1)) +
+      facet_wrap(~C, 
+                 scales = "free", strip.position = c("top"),
+                 labeller = label_glue('C = {`C`}')) +
+      labs(x = expression(~italic(r)~', the relatedness coefficient'),
+           y = ~delta~'(inbreeding depression)',
+           fill = "Sexual conflict",
+           subtitle = enter_subtitle) +
+      scale_x_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+      theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+            strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
+  }
 
-p3
+autosomal_conflict_plot <-
+  results %>%
+  filter(a == 1, v == 100, C != 4) %>% 
+  mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
+   mutate(sexual_conflict_updated = 
+           if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, 0)) %>%
+  make_conflict_plot(enter_subtitle = "The autosomal case")
+
+
+X_conflict_plot <- 
+  results %>% 
+  filter(a == 0.5, C != 4, v == 100) %>%  
+  select(1:5, contains("female")) %>% 
+  rename(a_female = a) %>% # this step makes the join work as intended
+  left_join(
+    results %>% 
+      filter(a == 1, C != 4, v == 100) %>% 
+      select(1:5, starts_with("male")) %>% 
+      rename(a_male = a) # this step makes the join work as intended
+  ) %>%
+  mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>% 
+  mutate(sexual_conflict_updated = 
+           if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, 0)) %>% 
+  make_conflict_plot(enter_subtitle = "The X chromosome case")
+
+Z_conflict_plot <-
+  results %>% 
+  filter(a == 1, C != 4, v == 100) %>%  
+  select(1:5, contains("female")) %>% 
+  rename(a_female = a) %>% left_join(
+    
+    results %>% 
+      filter(a == 0.5, C != 4, v == 100) %>% 
+      select(1:5, starts_with("male")) %>% 
+      rename(a_male = a)
+  ) %>% 
+  mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
+    mutate(sexual_conflict_updated = 
+             if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, 0)) %>% 
+  make_conflict_plot(enter_subtitle = "The Z chromosome case")
+
+autosomal_conflict_plot
+
+X_conflict_plot
+
+Z_conflict_plot
+
+```
+
+### Cytoplasmic results
+
+The results for cytoplasmic alleles are intuitive. Inbreeding can evolve through selection on either sex, but there is very little sexual antagonism over inbreeding, as selection optimises female fitness in both cases. The extent to which the inbreeding strategy is favoured can vary but the sign will never be opposing. 
+
+```{r}
+Female_cyto_plot <-
+  results %>%
+  filter(v != 10, C != 2 & C != 4, a == 0) %>% 
+  ggplot(aes(x = r, y = D)) +
+  geom_blank() +
+  geom_raster(aes(fill = female_fitness_contrast)) + 
+  stat_contour(aes(z = female_fitness_contrast*100), colour = "black", binwidth = 25,
+               breaks = c(-100, -75, -50, -25, 25, 50, 75, 100)) +
+  stat_contour(aes(z = female_fitness_contrast*100), colour = "black", breaks = 0,
+               linetype = 2) +
+  scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
+  facet_wrap(v ~ C, 
+             scales = "free", nrow = 3, strip.position = c("top"),
+             labeller = label_glue('v = {`v`}, C = {`C`}')) +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)',
+       fill = "Inbreeding fitness",
+       subtitle = "Alleles present in females") +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  theme(panel.border = element_rect(fill = NA, colour = "black", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
+
+
+Male_cyto_plot <-
+  results %>%
+  filter(v != 10, C != 2 & C != 4, a == 1) %>%  
+  ggplot(aes(x = r, y = D)) +
+  geom_blank() +
+  geom_tile(aes(fill = cyto_male_fitness_contrast)) + 
+  stat_contour(aes(z = cyto_male_fitness_contrast*100), colour = "black", binwidth = 25,
+               breaks = c(-75, -50, -25, 25, 50, 75, 100)) +
+  stat_contour(aes(z = cyto_male_fitness_contrast*100), colour = "black", breaks = 0,
+               linetype = 2) +
+  scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
+  facet_wrap(v ~ C,
+             scales = "free", nrow = 3, strip.position = c("top"),
+             labeller = label_glue('v = {`v`}, C = {`C`}')) +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)',
+       fill = "Inbreeding fitness",
+       subtitle = "Cytoplasmic alleles present in males") +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
+
+Female_cyto_plot
+
+Male_cyto_plot
 ```
 
 
+# Miscellaneous notes
 
+**The costs of mating**
 
+- Inbreeding depression
+
+- Sperm limitation (or some other form of parental investment that reduces the chance of mating again) - C must vary and be focused on. 
+
+**The costs of not mating**
+
+- Matelessness. Currently, this is why increasing $C$ reduces the tolerance towards inbreeding depression. Females foregoing reproduction with a relative are more likely to find a receptive male later in the cycle when $C$ is large.
+
+### Tasks
+
+- If successful start coding the larger simulation
 
 
 
