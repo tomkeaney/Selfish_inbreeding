@@ -836,10 +836,12 @@ male_inbreeding_equilibria <-
   bind_cols(r)
 ```
 
-### Plot the results
+## Plot the results
+
+### When is inbreeding favoured in each sex?
 
 ```{r}
-pal1 <- met.brewer("OKeeffe1", n=50, direction = -1)
+pal1 <- met.brewer("OKeeffe1", n=100, direction = -1)
 pal2 <- met.brewer("Hiroshige", n=50, direction = -1)
   
 Female_plot <-
@@ -865,7 +867,7 @@ Female_plot <-
   scale_x_continuous(expand = c(0, 0)) + 
   scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
   theme(panel.border = element_rect(fill = NA, colour = "black", linewidth = .8),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8))
 
 
 Male_plot <-
@@ -891,7 +893,7 @@ Male_plot <-
   scale_x_continuous(expand = c(0, 0)) + 
   scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8))
 
 Female_plot
 
@@ -899,89 +901,150 @@ Male_plot
 
 ```
 
-### Plotting various forms of conflict
+### When is there intragenomic conflict over inbreeding?
 
 ```{r}
 
-#pal2 <- met.brewer("VanGogh3", n=50, direction = 1)
+Intragenomic_conflict <-
+  results %>%
+  filter(v == 100, C != 4, C != 1) %>% 
+  select(1:5, female_fitness_contrast, male_fitness_contrast) %>%
+  pivot_wider(names_from = a, values_from = c(female_fitness_contrast, male_fitness_contrast)) %>% 
+  mutate(intragenomic_conflict_f_0_0.5 = female_fitness_contrast_0.5 - female_fitness_contrast_0,
+         #intragenomic_conflict_f_0.5_1 = female_fitness_contrast_1 - female_fitness_contrast_0.5,
+         intragenomic_conflict_f_0_1 = female_fitness_contrast_1 - female_fitness_contrast_0,
+         intragenomic_conflict_m_0_0.5 = male_fitness_contrast_0.5 - male_fitness_contrast_0,
+         #intragenomic_conflict_m_0.5_1 = male_fitness_contrast_1 - male_fitness_contrast_0.5,
+         intragenomic_conflict_m_0_1 = male_fitness_contrast_1 - male_fitness_contrast_0) %>%
+  pivot_longer(cols = contains("intragenomic"), names_to = "contrast", values_to = "intragenomic_conflict") %>%
+  mutate(contrast = str_remove(contrast, "intragenomic_conflict_")) %>% 
+  separate_wider_delim(cols = contrast, delim = "_", names = c("Sex", "a_2", "a_1")) %>% 
+  unite("contrast", a_1:a_2) %>% 
+    mutate(contrast = case_when(
+    contrast == "0.5_0" ~ "a = 0.5 - a = 0",
+    contrast == "1_0" ~ "a = 1 - a = 0")) %>%
+  mutate(intragenomic_conflict = case_when(
+    female_fitness_contrast_0 < 0 & female_fitness_contrast_0.5 > 0 & Sex == "f" & contrast == "a = 0.5 - a = 0" 
+    ~ intragenomic_conflict,
+    female_fitness_contrast_0 < 0 & female_fitness_contrast_1 > 0 & Sex == "f" & contrast == "a = 1 - a = 0" 
+    ~ intragenomic_conflict,
+    male_fitness_contrast_0 > 0 & male_fitness_contrast_0.5 < 0 & Sex == "m" & contrast == "a = 0.5 - a = 0" 
+    ~ intragenomic_conflict,
+    male_fitness_contrast_0 > 0 & male_fitness_contrast_1 < 0 & Sex == "m" & contrast == "a = 1 - a = 0" 
+    ~ intragenomic_conflict,
+    .default = NA)) %>% 
+  select(1:4, Sex, contrast, contains("intragenomic")) 
+    
 
-make_conflict_plot <- 
-  function(data, enter_subtitle){
-    data %>%
+make_genomic_conflict_plot <- 
+  function(sex, enter_subtitle){
+    Intragenomic_conflict %>%
+      filter(Sex == sex) %>% 
       #mutate(C = as.numeric(C)) %>% 
       ggplot(aes(x = r, y = D)) +
       geom_blank() +
-      geom_tile(aes(fill = sexual_conflict_updated)) + 
-     # stat_contour(aes(z = sexual_conflict_updated), colour = "black",
-      #      breaks = c(-.10, -.20, -.30, -.40, -.50, -.60, -.70, -.80, -.90, -.100,
-       #                .10, .20, .30, .40, .50, .60, .70, .80, .90, .100),
-        #    upright = TRUE) +
-      #stat_contour(aes(z = sexual_conflict*100), colour = "black", breaks = 0,
+      geom_tile(aes(fill = intragenomic_conflict)) + 
+      #stat_contour(aes(z = intragenomic_conflict), colour = "black",
+       #     breaks = c(-.10, -.20, -.30, -.40, -.50, -.60, -.70, -.80, -.90, -.100,
+        #               .10, .20, .30, .40, .50, .60, .70, .80, .90, .100),
+         #   upright = TRUE) +
+      #stat_contour(aes(z = intragenomic_conflict*100), colour = "black", breaks = 0,
        #    linetype = 2) +
-      scale_fill_gradientn(colours = pal1, limits = c(-1, 1)) +
-      facet_wrap(~C, 
+      scale_fill_gradientn(colours = pal2, limits = c(-1.25, 1.1), na.value = "white",
+                           labels = c("Strong conflict", -0.5, "No conflict", 0.5, "Strong conflict")) +
+      facet_wrap(C~contrast, nrow = 4,
                  scales = "free", strip.position = c("top"),
-                 labeller = label_glue('C = {`C`}')) +
+                 labeller = label_glue('contrast: {`contrast`}, C = {`C`}')) +
       labs(x = expression(~italic(r)~', the relatedness coefficient'),
            y = ~delta~'(inbreeding depression)',
-           fill = "Sexual conflict",
+           fill = "Intragenomic conflict",
            subtitle = enter_subtitle) +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
       theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
-            strip.background = element_rect(colour = "black", fill = "Aliceblue", size = .8))
+            strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8))
   }
 
-autosomal_conflict_plot <-
+make_genomic_conflict_plot(sex = "f", "Intragenomic conflict in females")
+make_genomic_conflict_plot(sex = "m", "Intragenomic conflict in males")
+
+```
+
+### When is there sexual conflict over inbreeding?
+
+```{r}
+
+autosomal_data <-
   results %>%
-  filter(a == 1, v == 100, C != 4) %>% 
+  filter(a == 1, v == 100,C != 4, C != 1) %>% 
   mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
    mutate(sexual_conflict_updated = 
-           if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, 0)) %>%
-  make_conflict_plot(enter_subtitle = "The autosomal case")
+           if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, NA),
+          Location = "Autosomal") 
 
-
-X_conflict_plot <- 
+X_data <- 
   results %>% 
-  filter(a == 0.5, C != 4, v == 100) %>%  
+  filter(a == 0.5, C != 4, C != 1, v == 100) %>%  
   select(1:5, contains("female")) %>% 
   rename(a_female = a) %>% # this step makes the join work as intended
   left_join(
     results %>% 
-      filter(a == 1, C != 4, v == 100) %>% 
+      filter(a == 1, C != 4, C != 1, v == 100) %>% 
       select(1:5, starts_with("male")) %>% 
       rename(a_male = a) # this step makes the join work as intended
   ) %>%
   mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>% 
   mutate(sexual_conflict_updated = 
-           if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, 0)) %>% 
-  make_conflict_plot(enter_subtitle = "The X chromosome case")
+           if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, NA),
+         Location = "X")
 
-Z_conflict_plot <-
+Z_data <-
   results %>% 
-  filter(a == 1, C != 4, v == 100) %>%  
+  filter(a == 1, C != 4, C != 1, v == 100) %>%  
   select(1:5, contains("female")) %>% 
   rename(a_female = a) %>% left_join(
     
     results %>% 
-      filter(a == 0.5, C != 4, v == 100) %>% 
+      filter(a == 0.5, C != 4, C != 1, v == 100) %>% 
       select(1:5, starts_with("male")) %>% 
       rename(a_male = a)
   ) %>% 
   mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
     mutate(sexual_conflict_updated = 
-             if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, 0)) %>% 
-  make_conflict_plot(enter_subtitle = "The Z chromosome case")
+             if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, NA),
+           Location = "Z")
 
-autosomal_conflict_plot
 
-X_conflict_plot
 
-Z_conflict_plot
-
+Sexual_conflict_plot <-
+  bind_rows(autosomal_data, X_data, Z_data) %>%
+  ggplot(aes(x = r, y = D)) +
+  geom_blank() +
+  geom_tile(aes(fill = sexual_conflict_updated)) + 
+  # stat_contour(aes(z = sexual_conflict_updated), colour = "black",
+  #      breaks = c(-.10, -.20, -.30, -.40, -.50, -.60, -.70, -.80, -.90, -.100,
+  #                .10, .20, .30, .40, .50, .60, .70, .80, .90, .100),
+  #    upright = TRUE) +
+  #stat_contour(aes(z = sexual_conflict*100), colour = "black", breaks = 0,
+  #    linetype = 2) +
+  scale_fill_gradientn(colours = pal2, limits = c(-1.25, 1.1), na.value = "white",
+                       labels = c("Strong conflict, female (+)", -0.5, 
+                                  "No conflict", 0.5, "Strong conflict, male (+)")) +
+  facet_wrap(Location~C, 
+             scales = "free", strip.position = c("top"),
+             labeller = label_glue('Location: {`Location`}, C = {`C`}')) +
+  labs(x = expression(~italic(r)~', the relatedness coefficient'),
+       y = ~delta~'(inbreeding depression)',
+       fill = "Intensity of\nsexual conflict") +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8))
+  
+Sexual_conflict_plot
 ```
 
-### Cytoplasmic results
+### The cytoplasmic case
 
 The results for cytoplasmic alleles are intuitive. Inbreeding can evolve through selection on either sex, but there is very little sexual antagonism over inbreeding, as selection optimises female fitness in both cases. The extent to which the inbreeding strategy is favoured can vary but the sign will never be opposing. 
 
@@ -999,7 +1062,7 @@ Female_cyto_plot <-
   scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
   facet_wrap(v ~ C, 
              scales = "free", nrow = 3, strip.position = c("top"),
-             labeller = label_glue('v = {`v`}, C = {`C`}')) +
+             labeller = label_glue('C = {`C`}')) +
   labs(x = expression(~italic(r)~', the relatedness coefficient'),
        y = ~delta~'(inbreeding depression)',
        fill = "Inbreeding fitness",
@@ -1023,7 +1086,7 @@ Male_cyto_plot <-
   scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
   facet_wrap(v ~ C,
              scales = "free", nrow = 3, strip.position = c("top"),
-             labeller = label_glue('v = {`v`}, C = {`C`}')) +
+             labeller = label_glue('C = {`C`}')) +
   labs(x = expression(~italic(r)~', the relatedness coefficient'),
        y = ~delta~'(inbreeding depression)',
        fill = "Inbreeding fitness",
