@@ -19,13 +19,13 @@ library(patchwork) # for combining plots
 library(geomtextpath) # for curved plot annotations
 ```
 
-## The basic equations
+## The seminal equation
 
-Our basic equation includes three parameters
+To model the inclusive fitness gained from an inbred mating, three components that contribute to fitness are required:
 
-1. $n$ the number of offspring produced directly
+1. The number of offspring produced directly: $n$
 
-2. The loss in fitness (number of offspring) due to inbreeding: $-\delta n$
+2. The reduction in fitness (number of offspring) due to inbreeding: $-\delta n$
 
 3. The indirect fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient 
 
@@ -33,9 +33,9 @@ Put together, the inclusive fitness from a single inbred mating in a monogamous 
 
 $$(1 + r)(1 - \delta)n$$
 
-while fitness from a single outbred mating is simply
+while fitness from a single outbred mating is simply $n$.
 
-$$n$$
+
 
 when $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding.
 
@@ -77,29 +77,27 @@ inbreeding_equilibria %>%
 
 The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.
 
-## Add a 'heritability-like' moderator variable
+## Adding a 'heritability-like' moderator variable
 
-As stated above, inclusive fitness where there is no inbreeding depression is $(1 + r)n$.
+As stated above, inclusive fitness where there is no inbreeding depression is $(1 + r)n$. However, for $rn$ to influence the evolutionary response, an allele present in the focal individual must also have some potential to be carried by the interacting individual. Here $r$ represents the correlation between genotypes carried by interacting females and males, specific to loci that appear equally in both sexes (e.g. loci on autosomes). However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci. 
 
-However, for $rn$ to influence the evolutionary response, an allele present in the focal individual must also have some potential to be carried by the interacting individual. Here $r$ represents the correlation between genotypes carried by interacting females and males, specific to loci that appear equally in both sexes (e.g. loci on autosomes). However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci. 
+To delineate differences in the effect of $r$ for different regions of the genome, we moderate the effect of $r$ by multiplying it with a new variable $a$, the the probability that a locus present in one sex is also present in the gametes produced by the other. Unlike $r$ which is relative to the population mean relatedness, $a$ is expressed as an absolute value ranging from 0 to 1.
 
-To delineate differences in the effect of $r$ for different regions of the genome, we moderate the effect of $r$ by multiplying it with a new variable $a$, the probability that a locus present in one sex is also present in the other. Unlike $r$ which is relative to the population mean relatedness, $a$ is expressed as an absolute value ranging from 0 to 1.
+The indirect component of fitness accrued by from an inbred mating becomes 
 
-The indirect component of fitness accrued by from an inbred mating becomes
+$$ran$$
+and inclusive fitness from an inbreeding event becomes
 
-$$(1 + ra)n$$
+$$(1 + ra)(1 - \delta )n$$
 
-The indirect fitness benefit is therefore moderated by a product of the correlation between alleles carried by two individuals and the correlation between loci carried by two individuals. Both correlations must be non-zero in order for their to be an evolutionary response to kin selection. Taking an allele found at a diploid autosomal locus as an example, a relative carries two copies of this locus, both of which could potentially contain alleles identical by descent. In this case $a = 1$ and the evolutionary response to kin selection is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic.
+Taking an allele found at a diploid autosomal locus as an example, all of the gametes produced by a relative possess this locus, where they could potentially carry alleles identical by descent. In this case $a = 1$ and the indirect component of inclusive fitness is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case $a = 0$. However, as inbreeding depression is a result of homozygosity for deleterious recessive alleles throughout the genome, the costs of inbreeding depression are born by all alleles carried by the individual. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear. 
 
-In contrast, an inbreeding preference allele present at a locus on an Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the opposite sex mating partner. In this case $a = 0$. However, as inbreeding depression is the result of homozygosity for deleterious reccessive alleles throughout the genome, the costs of inbreeding depression remains the same. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear. 
+X- or W-linked loci present an interesting intermediate case, with sex-specific values for $a$. When the inbreeding locus is carried by the sex with homozygous sex chromosomes, $a$ is half that of autosomal loci, whereas it does not depart from the autosomal case when the locus is found within the hemizygous sex. Using loci on the X as an example, those present in a XX female are only found in ~50% of a interacting males gametes, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and $a = 1$. 
 
-X- or Z-linked loci present an interesting intermediate case, with sex-specific effects. The intersex correlation between loci is half that of autosomal loci for the sex with homozygous sex chromosomes, whereas it does not depart from the autosomal case when expressed in the hemizygous sex. Using loci on the X as an example, those expressed in a female are only found in ~50% of a interacting males gametes$^*$, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and the one-way intersex correlation between loci = 1. 
+**The X/W situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/W linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.**
 
-The X/Z situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.
 
-$^*$ thinking about $a$ as the correlation between loci present in the focal individual and those present in a randomly chosen gamete of the interacting individual might be the best way forward.
-
-Table 1. Values of the parameter $a$ for different regions of the genome. $a$ is the one-way intersex correlation between loci present in interacting individuals. Note that mitochondria are the only endosymbiont I've included, because of the sex ratio distortion caused by many of the others, which could lead to intermediate values of $a$.   
+**Table 1.** Values of the parameter $a$ for different regions of the genome. $a$ is the one-way probability that a locus carried by one individual is found within the gametes of an opposite sex individual. Note that mitochondria represent all maternally inherited endosymbionts.
 
 ```{r}
 x <- 
@@ -108,16 +106,12 @@ x <-
     0.5 # X chromosome females or Z chromosome males
   )
 
-tibble(`Intersex correlation between loci (one-way)` = c(1, 0.5, 0),
+tibble(`Prob. that opposite sex gametes carry focal locus` = c(1, 0.5, 0),
        `Relevant cases` = c("Autosomes in either sex, X chromosomes in males, Z chromosomes in females, chromosomes in haplodiploids of either sex when reproducing sexually, mitochondrial chromosomes in males",
                             "X chromosomes in females, Z chromosomes in males",
                             "Y chromosomes in males, W chromosomes in females, mitochondrial chromosomes in females")) %>% 
   pander(split.cell = 20, split.table = Inf)
 ```
-
-The inclusive fitness from an inbreeding event becomes
-
-$$(1 + ra)(1 - \delta )n$$
 
 Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture
 
@@ -163,7 +157,7 @@ $~$
 
 ## Differences between the sexes beyond genetic architecture
 
-Parker's original equations:
+Parker's seminal equations:
 
 In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression.
 
@@ -183,7 +177,7 @@ We can again find the condition where breeding with a relative returns greater f
 
 $$\delta_{male} = \frac{1 - c}{1 + ra}$$
 
-Parker then modelled the condition for **females** to prefer incestuous matings when also presented with an outcrossing opportunity. 
+Parker then modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunity. 
 
 
 $$n(1 - \delta) + rn(1-\delta) - crn \gt n$$

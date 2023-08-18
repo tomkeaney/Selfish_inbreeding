@@ -4628,8 +4628,8 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
    
   <ul>
   <li><a href="#load-packages" id="toc-load-packages" class="nav-link active" data-scroll-target="#load-packages">Load packages</a></li>
-  <li><a href="#the-basic-equations" id="toc-the-basic-equations" class="nav-link" data-scroll-target="#the-basic-equations">The basic equations</a></li>
-  <li><a href="#add-a-heritability-like-moderator-variable" id="toc-add-a-heritability-like-moderator-variable" class="nav-link" data-scroll-target="#add-a-heritability-like-moderator-variable">Add a ‘heritability-like’ moderator variable</a></li>
+  <li><a href="#the-seminal-equation" id="toc-the-seminal-equation" class="nav-link" data-scroll-target="#the-seminal-equation">The seminal equation</a></li>
+  <li><a href="#adding-a-heritability-like-moderator-variable" id="toc-adding-a-heritability-like-moderator-variable" class="nav-link" data-scroll-target="#adding-a-heritability-like-moderator-variable">Adding a ‘heritability-like’ moderator variable</a></li>
   <li><a href="#differences-between-the-sexes-beyond-genetic-architecture" id="toc-differences-between-the-sexes-beyond-genetic-architecture" class="nav-link" data-scroll-target="#differences-between-the-sexes-beyond-genetic-architecture">Differences between the sexes beyond genetic architecture</a></li>
   <li><a href="#quantifying-the-costs-of-mating-and-not-mating-using-simulation" id="toc-quantifying-the-costs-of-mating-and-not-mating-using-simulation" class="nav-link" data-scroll-target="#quantifying-the-costs-of-mating-and-not-mating-using-simulation">Quantifying the costs of mating (and not mating) using simulation</a>
   <ul class="collapse">
@@ -4699,18 +4699,17 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 </details>
 </div>
 </section>
-<section id="the-basic-equations" class="level2">
-<h2 class="anchored" data-anchor-id="the-basic-equations">The basic equations</h2>
-<p>Our basic equation includes three parameters</p>
+<section id="the-seminal-equation" class="level2">
+<h2 class="anchored" data-anchor-id="the-seminal-equation">The seminal equation</h2>
+<p>To model the inclusive fitness gained from an inbred mating, three components that contribute to fitness are required:</p>
 <ol type="1">
-<li><p><span class="math inline">\(n\)</span> the number of offspring produced directly</p></li>
-<li><p>The loss in fitness (number of offspring) due to inbreeding: <span class="math inline">\(-\delta n\)</span></p></li>
+<li><p>The number of offspring produced directly: <span class="math inline">\(n\)</span></p></li>
+<li><p>The reduction in fitness (number of offspring) due to inbreeding: <span class="math inline">\(-\delta n\)</span></p></li>
 <li><p>The indirect fitness gain (number of offspring) due to inbreeding: <span class="math inline">\(rn\)</span>, where <span class="math inline">\(r\)</span> is the relatedness coefficient</p></li>
 </ol>
 <p>Put together, the inclusive fitness from a single inbred mating in a monogamous mating system is:</p>
 <p><span class="math display">\[(1 + r)(1 - \delta)n\]</span></p>
-<p>while fitness from a single outbred mating is simply</p>
-<p><span class="math display">\[n\]</span></p>
+<p>while fitness from a single outbred mating is simply <span class="math inline">\(n\)</span>.</p>
 <p>when <span class="math inline">\((1 + r)(1 - \delta)n \gt n\)</span> selection should favour a preference for inbreeding.</p>
 <p>Solving the inequality for <span class="math inline">\(\delta\)</span>:</p>
 <p><span class="math display">\[\delta \lt \frac{r}{1 + r}\]</span> which for varying values of <span class="math inline">\(r\)</span> looks like this:</p>
@@ -4752,19 +4751,17 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 </div>
 <p>The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.</p>
 </section>
-<section id="add-a-heritability-like-moderator-variable" class="level2">
-<h2 class="anchored" data-anchor-id="add-a-heritability-like-moderator-variable">Add a ‘heritability-like’ moderator variable</h2>
-<p>As stated above, inclusive fitness where there is no inbreeding depression is <span class="math inline">\((1 + r)n\)</span>.</p>
-<p>However, for <span class="math inline">\(rn\)</span> to influence the evolutionary response, an allele present in the focal individual must also have some potential to be carried by the interacting individual. Here <span class="math inline">\(r\)</span> represents the correlation between genotypes carried by interacting females and males, specific to loci that appear equally in both sexes (e.g. loci on autosomes). However, given that there is sexual dimorphism in genetic architecture for many taxa, <span class="math inline">\(r\)</span> does not sufficiently represent the correlation between genotypes for all loci.</p>
-<p>To delineate differences in the effect of <span class="math inline">\(r\)</span> for different regions of the genome, we moderate the effect of <span class="math inline">\(r\)</span> by multiplying it with a new variable <span class="math inline">\(a\)</span>, the probability that a locus present in one sex is also present in the other. Unlike <span class="math inline">\(r\)</span> which is relative to the population mean relatedness, <span class="math inline">\(a\)</span> is expressed as an absolute value ranging from 0 to 1.</p>
+<section id="adding-a-heritability-like-moderator-variable" class="level2">
+<h2 class="anchored" data-anchor-id="adding-a-heritability-like-moderator-variable">Adding a ‘heritability-like’ moderator variable</h2>
+<p>As stated above, inclusive fitness where there is no inbreeding depression is <span class="math inline">\((1 + r)n\)</span>. However, for <span class="math inline">\(rn\)</span> to influence the evolutionary response, an allele present in the focal individual must also have some potential to be carried by the interacting individual. Here <span class="math inline">\(r\)</span> represents the correlation between genotypes carried by interacting females and males, specific to loci that appear equally in both sexes (e.g. loci on autosomes). However, given that there is sexual dimorphism in genetic architecture for many taxa, <span class="math inline">\(r\)</span> does not sufficiently represent the correlation between genotypes for all loci.</p>
+<p>To delineate differences in the effect of <span class="math inline">\(r\)</span> for different regions of the genome, we moderate the effect of <span class="math inline">\(r\)</span> by multiplying it with a new variable <span class="math inline">\(a\)</span>, the the probability that a locus present in one sex is also present in the gametes produced by the other. Unlike <span class="math inline">\(r\)</span> which is relative to the population mean relatedness, <span class="math inline">\(a\)</span> is expressed as an absolute value ranging from 0 to 1.</p>
 <p>The indirect component of fitness accrued by from an inbred mating becomes</p>
-<p><span class="math display">\[(1 + ra)n\]</span></p>
-<p>The indirect fitness benefit is therefore moderated by a product of the correlation between alleles carried by two individuals and the correlation between loci carried by two individuals. Both correlations must be non-zero in order for their to be an evolutionary response to kin selection. Taking an allele found at a diploid autosomal locus as an example, a relative carries two copies of this locus, both of which could potentially contain alleles identical by descent. In this case <span class="math inline">\(a = 1\)</span> and the evolutionary response to kin selection is dictated solely by <span class="math inline">\(r\)</span>. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic.</p>
-<p>In contrast, an inbreeding preference allele present at a locus on an Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the opposite sex mating partner. In this case <span class="math inline">\(a = 0\)</span>. However, as inbreeding depression is the result of homozygosity for deleterious reccessive alleles throughout the genome, the costs of inbreeding depression remains the same. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear.</p>
-<p>X- or Z-linked loci present an interesting intermediate case, with sex-specific effects. The intersex correlation between loci is half that of autosomal loci for the sex with homozygous sex chromosomes, whereas it does not depart from the autosomal case when expressed in the hemizygous sex. Using loci on the X as an example, those expressed in a female are only found in ~50% of a interacting males gametes<span class="math inline">\(^*\)</span>, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female’s gametes all carry X chromosomes and the one-way intersex correlation between loci = 1.</p>
-<p>The X/Z situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.</p>
-<p><span class="math inline">\(^*\)</span> thinking about <span class="math inline">\(a\)</span> as the correlation between loci present in the focal individual and those present in a randomly chosen gamete of the interacting individual might be the best way forward.</p>
-<p>Table 1. Values of the parameter <span class="math inline">\(a\)</span> for different regions of the genome. <span class="math inline">\(a\)</span> is the one-way intersex correlation between loci present in interacting individuals. Note that mitochondria are the only endosymbiont I’ve included, because of the sex ratio distortion caused by many of the others, which could lead to intermediate values of <span class="math inline">\(a\)</span>.</p>
+<p><span class="math display">\[ran\]</span> and inclusive fitness from an inbreeding event becomes</p>
+<p><span class="math display">\[(1 + ra)(1 - \delta )n\]</span></p>
+<p>Taking an allele found at a diploid autosomal locus as an example, all of the gametes produced by a relative possess this locus, where they could potentially carry alleles identical by descent. In this case <span class="math inline">\(a = 1\)</span> and the indirect component of inclusive fitness is dictated solely by <span class="math inline">\(r\)</span>. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case <span class="math inline">\(a = 0\)</span>. However, as inbreeding depression is a result of homozygosity for deleterious recessive alleles throughout the genome, the costs of inbreeding depression are born by all alleles carried by the individual. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear.</p>
+<p>X- or W-linked loci present an interesting intermediate case, with sex-specific values for <span class="math inline">\(a\)</span>. When the inbreeding locus is carried by the sex with homozygous sex chromosomes, <span class="math inline">\(a\)</span> is half that of autosomal loci, whereas it does not depart from the autosomal case when the locus is found within the hemizygous sex. Using loci on the X as an example, those present in a XX female are only found in ~50% of a interacting males gametes, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female’s gametes all carry X chromosomes and <span class="math inline">\(a = 1\)</span>.</p>
+<p><strong>The X/W situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/W linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.</strong></p>
+<p><strong>Table 1.</strong> Values of the parameter <span class="math inline">\(a\)</span> for different regions of the genome. <span class="math inline">\(a\)</span> is the one-way probability that a locus carried by one individual is found within the gametes of an opposite sex individual. Note that mitochondria represent all maternally inherited endosymbionts.</p>
 <div class="cell">
 <details>
 <summary>Code</summary>
@@ -4774,7 +4771,7 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.5</span> <span class="co"># X chromosome females or Z chromosome males</span></span>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="st">`</span><span class="at">Intersex correlation between loci (one-way)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.5</span>, <span class="dv">0</span>),</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="st">`</span><span class="at">Prob. that opposite sex gametes carry focal locus</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.5</span>, <span class="dv">0</span>),</span>
 <span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>       <span class="st">`</span><span class="at">Relevant cases</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;Autosomes in either sex, X chromosomes in males, Z chromosomes in females, chromosomes in haplodiploids of either sex when reproducing sexually, mitochondrial chromosomes in males&quot;</span>,</span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;X chromosomes in females, Z chromosomes in males&quot;</span>,</span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;Y chromosomes in males, W chromosomes in females, mitochondrial chromosomes in females&quot;</span>)) <span class="sc">%&gt;%</span> </span>
@@ -4783,12 +4780,12 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 <div class="cell-output-display">
 <table class="table table-sm table-striped small">
 <colgroup>
-<col style="width: 31%">
+<col style="width: 30%">
 <col style="width: 31%">
 </colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: center;">Intersex correlation between loci (one-way)</th>
+<th style="text-align: center;">Prob. that opposite sex gametes carry focal locus</th>
 <th style="text-align: center;">Relevant cases</th>
 </tr>
 </thead>
@@ -4809,8 +4806,6 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 </table>
 </div>
 </div>
-<p>The inclusive fitness from an inbreeding event becomes</p>
-<p><span class="math display">\[(1 + ra)(1 - \delta )n\]</span></p>
 <p>Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture</p>
 <p><span class="math display">\[\delta \lt \frac{ra}{1 + ra}\]</span> Ignoring frequency dependence for now, we can plot the new slopes produced by varying <span class="math inline">\(r\)</span> and <span class="math inline">\(a\)</span>:</p>
 <div class="cell">
@@ -4856,7 +4851,7 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 </section>
 <section id="differences-between-the-sexes-beyond-genetic-architecture" class="level2">
 <h2 class="anchored" data-anchor-id="differences-between-the-sexes-beyond-genetic-architecture">Differences between the sexes beyond genetic architecture</h2>
-<p>Parker’s original equations:</p>
+<p>Parker’s seminal equations:</p>
 <p>In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression.</p>
 <p>For males he found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:</p>
 <p><span class="math display">\[n(1 - \delta) + rn(1- \delta) - cn \gt rn\]</span></p>
@@ -4866,7 +4861,7 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 <p><span class="math display">\[(1-\delta) + ra(1-\delta) - c \gt ra\]</span></p>
 <p>We can again find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy:</p>
 <p><span class="math display">\[\delta_{male} = \frac{1 - c}{1 + ra}\]</span></p>
-<p>Parker then modelled the condition for <strong>females</strong> to prefer incestuous matings when also presented with an outcrossing opportunity.</p>
+<p>Parker then modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunity.</p>
 <p><span class="math display">\[n(1 - \delta) + rn(1-\delta) - crn \gt n\]</span> which we can write as</p>
 <p><span class="math display">\[(1-\delta) + ra(1-\delta) - rac \gt 1\]</span></p>
 <p>the inbreeding depression threshold is</p>
