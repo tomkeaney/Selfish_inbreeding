@@ -3,6 +3,7 @@ title: "When not to avoid inbreeding: a gene's eye view perspective"
 author: "Thomas Keaney, Arvid Agren and Hanna Kokko (no particular order yet)"
 execute: 
   warning: false
+
 ---
 
 ## Load packages
@@ -930,7 +931,7 @@ Male_plot
 
 Intragenomic_conflict <-
   results %>%
-  filter(v == 100, C != 4, C != 1) %>% 
+  filter(v == 100, C != 4, C != 2, C != 1) %>% 
   select(1:5, female_fitness_contrast, male_fitness_contrast) %>%
   pivot_wider(names_from = a, values_from = c(female_fitness_contrast, male_fitness_contrast)) %>% 
   mutate(intragenomic_conflict_f_0_0.5 = female_fitness_contrast_0.5 - female_fitness_contrast_0,
@@ -1019,7 +1020,7 @@ X_data <-
   mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>% 
   mutate(sexual_conflict_updated = 
            if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, NA),
-         Location = "X")
+         Location = "X-linked")
 
 Z_data <-
   results %>% 
@@ -1035,7 +1036,7 @@ Z_data <-
   mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
     mutate(sexual_conflict_updated = 
              if_else(female_fitness_contrast < 0 & male_fitness_contrast > 0, sexual_conflict, NA),
-           Location = "Z")
+           Location = "Z-linked")
 
 
 
@@ -1055,7 +1056,7 @@ Sexual_conflict_plot <-
                                   "No conflict", 0.5, "Strong conflict, male (+)")) +
   facet_wrap(Location~C, 
              scales = "free", strip.position = c("top"),
-             labeller = label_glue('Location: {`Location`}, C = {`C`}')) +
+             labeller = label_glue('{`Location`}, C = {`C`}')) +
   labs(x = expression(~italic(r)~', the relatedness coefficient'),
        y = ~delta~'(inbreeding depression)',
        fill = "Intensity of\nsexual conflict") +
@@ -1136,6 +1137,12 @@ Male_cyto_plot
 
 -   Matelessness. Currently, this is why increasing $C$ reduces the tolerance towards inbreeding depression. Females foregoing reproduction with a relative are more likely to find a receptive male later in the cycle when $C$ is large.
 
-### Tasks
+# Session information
 
--   If successful start coding the larger simulation
+```{r}
+sessionInfo() %>% pander
+```
+
+
+
+
