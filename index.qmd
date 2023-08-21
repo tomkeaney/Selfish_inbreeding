@@ -3,7 +3,6 @@ title: "When not to avoid inbreeding: a gene's eye view perspective"
 author: "Thomas Keaney, Arvid Agren and Hanna Kokko (no particular order yet)"
 execute: 
   warning: false
-
 ---
 
 ## Load packages
@@ -11,6 +10,7 @@ execute:
 ```{r}
 library(tidyverse) # for tidy style coding and plotting
 library(pander) # for tables
+library(kableExtra) # for scrolling tables
 library(MetBrewer) # for colour palettes based upon artwork housed at the met
 library(wesanderson) # for colour palettes based on wes anderson movies
 library(tidybayes) # for plotting distributions
@@ -19,30 +19,35 @@ library(patchwork) # for combining plots
 library(geomtextpath) # for curved plot annotations
 ```
 
+## Things to discuss
+
+-   frequency dependence may be needed in this model - important for the question of whether an allele enhances it's propagation more by aiding two copies (i.e. in a homozygote) instead of one. This also depends on how exactly we define $r$
+
+-   $c$ is not included in fitness calculation
+
+-   When I simulate outbreeding, only the focal pair forego mating. This makes the strategy riskier because the chance of going unmated increases. Is this a reasonable resident strategy?
+
 ## The seminal equation
 
 To model the inclusive fitness gained from an inbred mating, three components that contribute to fitness are required:
 
-1. The number of offspring produced directly: $n$
+1.  The number of offspring produced directly: $n$
 
-2. The reduction in fitness (number of offspring) due to inbreeding: $-\delta n$
+2.  The reduction in fitness (number of offspring) due to inbreeding: $-\delta n$
 
-3. The indirect fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient 
+3.  The indirect fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient
 
-Put together, the inclusive fitness from a single inbred mating in a monogamous mating system is:
+Put together, the inclusive fitness from a single inbred mating is:
 
 $$(1 + r)(1 - \delta)n$$
 
 while fitness from a single outbred mating is simply $n$.
 
-
-
-when $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding.
+When $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding.
 
 Solving the inequality for $\delta$:
 
-$$\delta \lt \frac{r}{1 + r}$$
-which for varying values of $r$ looks like this:
+$$\delta \lt \frac{r}{1 + r}$$ which for varying values of $r$ looks like this:
 
 ```{r, echo=TRUE}
 
@@ -77,25 +82,25 @@ inbreeding_equilibria %>%
 
 The parameter space above the curve shows where inbreeding avoidance should evolve, while the parameter space below the curve shows where inbreeding preference should evolve.
 
-## Adding a 'heritability-like' moderator variable
+## Accounting for sex differences in genetic architecture
 
-As stated above, inclusive fitness where there is no inbreeding depression is $(1 + r)n$. However, for $rn$ to influence the evolutionary response, an allele present in the focal individual must also have some potential to be carried by the interacting individual. Here $r$ represents the correlation between genotypes carried by interacting females and males, specific to loci that appear equally in both sexes (e.g. loci on autosomes). However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci. 
+As stated above, inclusive fitness in the absence of inbreeding depression is $(1 + r)n$. Here $r$ represents the correlation between genotypes carried by interacting females and males, under the implicit assumption that loci appear equally in both sexes. However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci.
 
-To delineate differences in the effect of $r$ for different regions of the genome, we moderate the effect of $r$ by multiplying it with a new variable $a$, the the probability that a locus present in one sex is also present in the gametes produced by the other. Unlike $r$ which is relative to the population mean relatedness, $a$ is expressed as an absolute value ranging from 0 to 1.
+To delineate differences in the effect of $r$ for different regions of the genome, we multiply $r$ with a new variable $a$, the probability that a locus present in one sex is also present in the gametes produced by the other. Unlike $r$ which is relative to the population mean relatedness, $a$ is expressed as an absolute value ranging from 0 to 1.
 
-The indirect component of fitness accrued by from an inbred mating becomes 
+The indirect component of fitness accrued by from an inbred mating becomes
 
 $$ran$$
+
 and inclusive fitness from an inbreeding event becomes
 
 $$(1 + ra)(1 - \delta )n$$
 
-Taking an allele found at a diploid autosomal locus as an example, all of the gametes produced by a relative possess this locus, where they could potentially carry alleles identical by descent. In this case $a = 1$ and the indirect component of inclusive fitness is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case $a = 0$. However, as inbreeding depression is a result of homozygosity for deleterious recessive alleles throughout the genome, the costs of inbreeding depression are born by all alleles carried by the individual. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear. 
+Taking an allele found at a diploid autosomal locus as an example, all of the gametes produced by a relative possess this locus, where they could potentially carry alleles identical by descent. In this case $a = 1$ and the indirect component of inclusive fitness is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case $a = 0$. However, as inbreeding depression is a result of homozygosity for deleterious recessive alleles throughout the genome, the costs of inbreeding depression are born by all alleles carried by the individual. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear.
 
-X- or W-linked loci present an interesting intermediate case, with sex-specific values for $a$. When the inbreeding locus is carried by the sex with homozygous sex chromosomes, $a$ is half that of autosomal loci, whereas it does not depart from the autosomal case when the locus is found within the hemizygous sex. Using loci on the X as an example, those present in a XX female are only found in ~50% of a interacting males gametes, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and $a = 1$. 
+X- or Z-linked loci present an interesting intermediate case, with sex-specific values for $a$. When the inbreeding locus is carried by the sex with homozygous sex chromosomes, $a$ is half that of autosomal loci, whereas it does not depart from the autosomal case when the locus is found within the hemizygous sex. Using loci on the X as an example, those present in a XX female are only found in \~50% of a interacting males gametes, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and $a = 1$.
 
-**The X/W situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/W linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.**
-
+**The X/Z situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph.**
 
 **Table 1.** Values of the parameter $a$ for different regions of the genome. $a$ is the one-way probability that a locus carried by one individual is found within the gametes of an opposite sex individual. Note that mitochondria represent all maternally inherited endosymbionts.
 
@@ -116,6 +121,7 @@ tibble(`Prob. that opposite sex gametes carry focal locus` = c(1, 0.5, 0),
 Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture
 
 $$\delta \lt \frac{ra}{1 + ra}$$
+
 Ignoring frequency dependence for now, we can plot the new slopes produced by varying $r$ and $a$:
 
 ```{r}
@@ -159,15 +165,15 @@ $~$
 
 Parker's seminal equations:
 
-In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression.
+In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression. The key difference with the monogamous case is that a cost to future reproductive success is included, with the potential to be greater in females than males.
 
 For males he found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
 
 $$n(1 - \delta) + rn(1- \delta) - cn \gt rn$$
 
-the first term is the direct number of offspring alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he forgone mating). 
+the first term is the direct number of alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing, and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he forgone mating).
 
-$c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males contribute only sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c = 0$. 
+$c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males contribute only sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c = 0$.
 
 We add the $a$ variable to the equation and letting $n = 1$, simplify to
 
@@ -177,10 +183,10 @@ We can again find the condition where breeding with a relative returns greater f
 
 $$\delta_{male} = \frac{1 - c}{1 + ra}$$
 
-Parker then modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunity. 
-
+Parker then modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunity.
 
 $$n(1 - \delta) + rn(1-\delta) - crn \gt n$$
+
 which we can write as
 
 $$(1-\delta) + ra(1-\delta) - rac \gt 1$$
@@ -188,7 +194,8 @@ $$(1-\delta) + ra(1-\delta) - rac \gt 1$$
 the inbreeding depression threshold is
 
 $$\delta_{female} = \frac{ra - rac}{1 + ra}$$
-Note that when $c = 0$, this is equivalent to the $\delta$ threshold found by Kokko and Ots (2006).
+
+Note that when $c = 0$, this is equivalent to the $\delta$ threshold found in the single mating case.
 
 Plot the relationship between $r$ and $\delta$ for several values of $c$ and $a$
 
@@ -224,19 +231,19 @@ Parker_cost_data <-
 
 ## Quantifying the costs of mating (and not mating) using simulation
 
-Parker's $c$ value offers a simple, intuitive way to model the cost of mating for males relative to females. However, other methods better capture the dynamics of real populations, where both sexes also run the risk of going unmated. To incorporate both costs of mating and matelessness, we simulate the fitness consequences of following an inbreeding preference or avoidance strategy in a sexually reproducing population where the opportunity for mating is finite. Specifically, we simulate fitness under both conditions for every individual in the population, where each individual is considered independently. 
+Parker's $c$ value offers a simple, intuitive way to model the cost of mating for males relative to females. However, other methods better capture the dynamics of real populations, where both sexes also run the risk of going unmated. To incorporate both costs of mating and matelessness, we simulate the fitness consequences of following an inbreeding preference or avoidance strategy in a sexually reproducing population where the opportunity for mating is finite. Specifically, we simulate fitness under both conditions for every individual in the population, where each individual is considered independently.
 
-A very important point is that we consider a population where the resident strategy is to accept mating with a relative. Our simulation therefore estimates the condition required for inbreeding _avoidance_ to invade. One consequence of inbreeding avoidance is an increased risk of going unmated for both sexes when they forego mating with a relative, particularly when the cost of mating for males is large, or search efficiency is low.
+A very important point is that we consider a population where the resident strategy is to accept mating with a relative. Our simulation therefore estimates the condition required for inbreeding *avoidance* to invade. One consequence of inbreeding avoidance is an increased risk of going unmated for both sexes when they forego mating with a relative, particularly when the cost of mating for males is large, or search efficiency is low.
 
 ### Produce a sample of lifespans
 
-Following Ekrem and Kokko (2023), we simulate the reproductive lifespans of `N` individuals in a single generation. We assume all individuals enter the breeding pool at arbitrary time zero and that from this point onwards, mortality events are drawn from an exponential distribution with $\mu_F$ and $\mu_M$ for females (`female_death_rate`) and males (`male_death_rate`) respectively. The chance of mortality is therefore constant across the reproductive lifespan for each sex. For simplicity, $\mu_F = \mu_M = 0.2$ in the simulation run documented here. 
+Following Ekrem and Kokko (2023), we simulate the reproductive lifespans of `N` individuals in a single generation. We assume all individuals enter the breeding pool at arbitrary time zero (unlike Kokko andd Ekrem 2023) and that from this point onwards, mortality events are drawn from an exponential distribution with $\mu_F$ and $\mu_M$ for females (`female_death_rate`) and males (`male_death_rate`) respectively. The chance of mortality is therefore constant across the reproductive lifespan for each sex. $\mu_F = \mu_M = 0.2$ in the simulation run documented here.
 
 ```{r}
 
 # set some basic parameters that likely won't change
 
-Population_size <- 2000
+Population_size <- 1000
 
 Female_death_rate <- 0.2
 
@@ -270,7 +277,7 @@ Female_lifespan <-
 
 ```
 
-A sample of `N = 1000` female reproductive lifespans is shown below.
+A sample of `N = 500` female reproductive lifespans is shown below.
 
 ```{r}
 Female_lifespan %>% 
@@ -290,14 +297,13 @@ Female_lifespan %>%
         text = element_text(size=14))
 ```
 
-
 ### Create a candidate list of mating events
 
-With individual reproductive lifespans known, we can then calculate time stamps for every possible female-male encounter for this set of individuals. This process follows mass action law, where the population-wide rate of female-male encounters at any time point, $t$, is equal to the female density multiplied by the male density at any time $t$, scaled by a constant $v$. `v` represents the search efficiency of males in the population, where higher values indicate more efficient mate finding. For each focal male, the time to finding each specific female is drawn from a negative exponential distribution, with rate $\frac{v}{N/2}$. The end result is a complete schedule of female-male interactions across the breeding cycle.
+With individual reproductive lifespans known, we can then calculate time stamps for every possible female-male encounter for this set of individuals. For each focal male, the time to finding each specific female is drawn from a negative exponential distribution, with rate $\frac{v}{N/2}$. $v$ represents the search efficiency of males in the population, where higher values indicate more efficient mate finding. The end result is a complete schedule of female-male interactions across the generation's reproductive lifespan.
 
-Here, we set `N=2000` and find the encounter time for the $1000^2$ possible female-male encounters.
+Here, we set `N=1000` and find the encounter time for the $500^2$ possible female-male encounters.
 
-`v` is one of the parameters that we can vary to change the risk of an individual going unmated. Here, we create candidate lists of mating events where $v = 1$, $v =10$, $v = 100$ and $v = 1000$ (where this last value equates to a search efficiency five times the death rate when population size = 2000).
+$v$ is one of the parameters that we can vary to change the risk of an individual going unmated. Here, we create candidate lists of mating events where $v = 1$, $v =10$, $v = 100$ and $v = 1000$ (where v = 100 equates to a search efficiency equal to the rate of mortality when $N = 1000)$.
 
 ```{r}
 Female_pop_size <- Population_size*0.5
@@ -338,19 +344,19 @@ candidate_list1000 <-
 
 ```
 
-The plots below show the distribution of candidate mating encounters, trimmed to only show encounters set to occur within the maximum reproductive lifespan of females. Note that mate searching is very inefficient when $v = 1$ or $v = 10$, giving the appearance of a constant number of encounters over time, irrespective of the density of potential mates. 
-
-```{r}
+```{r, include=FALSE, eval=FALSE}
+#The plots below show the distribution of candidate mating encounters, trimmed to only show encounters set to occur within the maximum reproductive lifespan of females. Note that mate searching is very inefficient when $v = 1$ or $v = 10$, giving the appearance of a constant number of encounters over time, irrespective of the density of potential mates. 
 
 bind_rows(candidate_list1, candidate_list10, candidate_list100, candidate_list1000) %>% 
-  filter(Mate_encounter_time_stamp < max(Female_lifespan)) %>% 
+  #filter(Mate_encounter_time_stamp < max(Female_lifespan)) %>% 
   ggplot(aes(x = Mate_encounter_time_stamp, y = as.factor(v))) +
   stat_halfeye(fill = met.brewer("VanGogh3", n = 8)[3], .width = c(0.66, 0.95), alpha = 1,
                point_interval = "median_qi", point_fill = "white", 
                shape = 21, point_size = 4, stroke = 1.5) +
+  geom_vline(aes(xintercept = max(Female_lifespan)), linetype = 2) +
   labs(x= "Time of female-male encounters in population",
        y = expression('Mate searching efficiency, '~italic(v))) +
-  scale_x_continuous(expand = c(0, 0)) + 
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200)) + 
   #scale_y_continuous(expand = c(0, 0)) + 
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
@@ -360,14 +366,16 @@ bind_rows(candidate_list1, candidate_list10, candidate_list100, candidate_list10
         text = element_text(size=14))
 ```
 
-
 ### Trim candidates to create the mating schedule
 
-Next, we trim the list of encounters down to the realised number of mating events that occur in the population. First, we remove the temporally impossible encounters that are set to occur after the death of one of the interacting individuals. 
+Next, we trim the list of encounters down to the realised number of mating events that occur in the population. First, we remove the temporally impossible encounters that are set to occur after the death of one of the interacting individuals.
 
-For simplicity, we assume that females are monandrous and that while males can mate with multiple females, each mating has an associated cost. Examples of such costs include sperm-limitation, courtship displays that diminish condition or post-copulatory investment of resources into reproduction via mate guarding or parental care. We simulate this cost by setting a maximum limit, $C$ for the number of matings a male can attain. Low values of $C$ indicate that mating is costly, whereas high values indicate that a male's future mating prospects are relatively unaffected by a current mating opportunity. Virgin females are therefore receptive to mating with the first receptive male they encounter (with one important exception; see below) but otherwise unreceptive, while males are receptive to all matings (with the same exception alluded to above) until attained matings = $C$. Low values of $C$ (especially when paired with small $v$) increase the likelihood of matelessness. 
+For simplicity, we assume that females are monandrous and that while males can mate with multiple females, each mating has an associated cost. Examples of such costs include sperm-limitation, courtship displays that diminish condition or post-copulatory investment of resources into reproduction via mate guarding or parental care. We simulate this cost by setting a maximum limit, $C$ for the number of matings a male can attain. Low values of $C$ indicate that mating is costly, whereas high values indicate that a male's future mating prospects are relatively unaffected by a current mating opportunity. Virgin females are therefore receptive to mating with the first receptive male they encounter (with one important exception; see below) but otherwise unreceptive, while males are receptive to all matings (with the same exception alluded to above) until attained matings = $C$. Low values of $C$ (especially when paired with small $v$) increase the likelihood of matelessness.
 
 ```{r}
+
+# get candidate lists for the four values of v we consider
+
 candidate_list1 <-
   candidate_list1 %>% 
   filter(Female_lifespan > Mate_encounter_time_stamp & 
@@ -424,21 +432,32 @@ mating_schedule <- bind_rows(mating_schedule1, mating_schedule2, mating_schedule
 
 ```
 
+To illustrate what this function does, we can select a random male from the population. When $v = 1$ and $C = 2$, male 397's encounter schedule looks like this:
+
+```{r}
+mating_schedule2 %>% filter(Male_ID == "397", v == 1) %>% arrange(Mate_encounter_time_stamp) %>% 
+  kable() %>% 
+  kable_styling()
+  
+```
+
+$~$
+
 ### Implementing inbreeding
 
 We assume that each female's first potential mating encounter occurs with a relative of relatedness $r$ and all subsequent encounters occur with unrelated individuals ($r = 0$; where relatedness is relative to the mean relatedness in the population). While clearly a simplification of reality, this assumption is not unreasonable, as individuals of many species often start life in the same location as their kin, and may remain in the general proximity of their natal range for much of their lives i.e. many species display high population viscosity.
 
-To simulate the fitness consequences of inbreeding, we first consider a scenario where virgin females are not choosy, and therefore when virgin are receptive to mating with their relatives. Males also mate freely with any receptive female, until they reach $C$. We then track the fitness consequences of mating incestuously. 
+To simulate the fitness consequences of inbreeding, we first consider a scenario where virgin females are receptive to mating with their relatives. Males also mate freely with any receptive female, until they reach $C$. We then track the fitness consequences of mating incestuously.
 
 We calculate the fitness of an allele present in a female from the incestuous mating as
 
-$$n(1 - \delta) + ran(1- \delta)$$
-and any inclusive fitness gained throughout the remainder of the life cycle as
+$$n(1 - \delta) + ran(1- \delta)$$ and any inclusive fitness gained throughout the remainder of the life cycle as
 
-$$ran(C_{realised} - 1)$$
+$$ran(male.matings - 1)$$
 
-where $C_{realised} - 1$ is the number of additional matings accrued by the focal male. **yep C_realised is a bad name for future reproductive value, but just a placeholder for now**
+where $male.matings - 1$ is the number of additional matings accrued by the focal male. **Placeholder term for now**
 
+**At present, c is not included in the fitness calculation**
 
 ```{r}
 
@@ -459,7 +478,7 @@ parameters <-
     Female_ID = as.factor(1:Female_pop_size))
 
 inbreeding_fitness <- 
-  matings %>% # only breeding females used 
+  matings %>% # only breeding pairs are used 
   group_by(Male_ID, v, C) %>% 
   mutate(inbreeding_male_matings = n()) %>% # find the number of time each male mates
   ungroup() %>%
@@ -480,19 +499,29 @@ inbreeding_fitness <-
 
 ### Implementing inbreeding avoidance
 
-We now consider a scenario where individuals forego mating with their kin. For each female-male pair that mated incestuously, we calculate fitness when they instead follow an outbreeding strategy by: 
+We now consider a scenario where individuals forego mating with their kin. For each female-male pair that mated incestuously, we calculate fitness when they instead follow an outbreeding strategy by:
 
-1. Removing the first receptive mating in each females schedule i.e. inbreeding is avoided.
+1.  Removing the first receptive mating in a female's schedule i.e. inbreeding is avoided.
 
-2. Recapitulating the mating schedule (as rejecting a mating opportunity has flow on effects for the population).
+2.  Recapitulating the mating schedule (as rejecting a mating opportunity has flow on effects for the population).
 
-3. Re-deriving female and male fitness across the parameter space. 
+3.  Re-deriving female and male fitness across the parameter space.
 
-$w_{female} = n + ran(C_{realised})$
+We complete steps 1-3 for each female-male pair, rather than simply removing all the first matings from the population in a single iteration. This allows us to quantify the fitness of an alleles were it to inhabit any individual in the population
 
-$w_{male} = nC_{realised} + ran$
+is because we quantify the fitness of alleles encoding a strategy as the mean 
 
-We complete steps 1-3 for each female-male pair, rather than simply removing all the first matings from the population in a single iteration. This is because we are simulating the fitness consequences of avoiding inbreeding when this strategy is rare, rather than when the entire population does so. **The conditions present at the onset of invasion is something to discuss**.
+simulating the fitness consequences of avoiding inbreeding when this strategy is rare, rather than when the entire population does so. **The conditions present at the onset of invasion are something to discuss**.
+
+Fitness when following an outbreeding strategy is determined by future reproductive success.
+
+In females this equals
+
+$$n + ran(male.matings)$$
+
+and in males
+
+$$n(male.matings) + ran$$
 
 Build the functions to calculate outbred fitness
 
@@ -503,7 +532,7 @@ outbred_parameters <- expand_grid(r = seq(0, 1, length = resolution),
 
 outbreeding_fitness_function <- function(female, data, search_efficiency, m_mate_limit){
   
-  cols <- tibble(female_matings = 0, male_matings = 0) #
+  cols <- tibble(female_matings = 0, male_matings = 0) # needed in the function when female_matings or male_matings = 0
   
   data %>% 
     filter(v == search_efficiency) %>%
@@ -523,7 +552,7 @@ outbreeding_fitness_function <- function(female, data, search_efficiency, m_mate
     distinct(Future_mating, .keep_all = T) %>% # only include one row for each focal pair
     select(Focal_female, Focal_male, Future_mating, matings, v, C) %>% 
     pivot_wider(names_from = Future_mating, values_from = matings) %>%
-    add_column(!!!cols[!names(cols) %in% names(.)]) %>% # if female_matings or male_matings doesn't exist (0 future matings), add the appropriate column from the cols object
+    add_column(!!!cols[!names(cols) %in% names(.)]) %>% # if female_matings or male_matings = 0, add the appropriate column from the cols object
     add_row(Focal_female = "0", Focal_male = "0", v = as.character(search_efficiency), # when neither focal finds a new mate, the simulation fails. To stop this we add this placeholder row which we can later delete.
             C = as.character(m_mate_limit), male_matings = 0, female_matings = 0) %>% 
     expand_grid(outbred_parameters) %>% # add the parameter space which was created above 
@@ -773,14 +802,14 @@ if(Run_function){
     bind_rows(outbred1, outbred2, outbred3, outbred4, outbred5, outbred6, outbred7, 
               outbred8, outbred9, outbred10, outbred11, outbred12, outbred13, outbred14,
               outbred15, outbred16, outbred17, outbred18, outbred19, outbred20)
-  write_csv(outbreeding_fitness, file = "results/outbreeding.fitness_compact.csv")
+  write_csv(outbreeding_fitness, file = "results/outbreeding.fitness_new.csv")
   
-} else outbreeding_fitness <- read_csv("results/outbreeding.fitness_compact.csv")
+} else outbreeding_fitness <- read_csv("results/outbreeding.fitness_new.csv")
 ```
 
-Finally, we combine the `inbreeding_fitness` and `outbreeding_fitness` dataframes. `inbreeding_fitness` has >115 million rows, which is 50 times as many as `outbreeding_fitness`, due to the inclusion of $\delta$ in its explored parameter space.
+Finally, we combine the `inbreeding_fitness` and `outbreeding_fitness` dataframes. `inbreeding_fitness` has \>115 million rows, which is 50 times as many as `outbreeding_fitness`, due to the inclusion of $\delta$ in its explored parameter space.
 
-Whether selection favours inbreeding at a particular parameter space, in a particular sex, is found by subtracting outbreeding fitness from inbreeding fitness, for each female-male encounter. For each parameter space, we then find the mean value for all interactions.      
+Whether selection favours inbreeding at a particular parameter space, in a particular sex, is found by subtracting outbreeding fitness from inbreeding fitness, for each female-male encounter. For each parameter space, we then find the mean value for all interactions.
 
 ```{r}
 results <-
@@ -1040,7 +1069,7 @@ Sexual_conflict_plot
 
 ### The cytoplasmic case
 
-The results for cytoplasmic alleles are intuitive. Inbreeding can evolve through selection on either sex, but there is very little sexual antagonism over inbreeding, as selection optimises female fitness in both cases. The extent to which the inbreeding strategy is favoured can vary but the sign will never be opposing. 
+The results for cytoplasmic alleles are intuitive. Inbreeding can evolve through selection on either sex, but there is very little sexual antagonism over inbreeding, as selection optimises female fitness in both cases. The extent to which the inbreeding strategy is favoured can vary but the sign will never be opposing.
 
 ```{r}
 Female_cyto_plot <-
@@ -1056,7 +1085,7 @@ Female_cyto_plot <-
   scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
   facet_wrap(v ~ C, 
              scales = "free", nrow = 3, strip.position = c("top"),
-             labeller = label_glue('C = {`C`}')) +
+             labeller = label_glue('v = {`v`}, C = {`C`}')) +
   labs(x = expression(~italic(r)~', the relatedness coefficient'),
        y = ~delta~'(inbreeding depression)',
        fill = "Inbreeding fitness",
@@ -1080,7 +1109,7 @@ Male_cyto_plot <-
   scale_fill_gradientn(colours = pal1, breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1.5, 1.5)) +
   facet_wrap(v ~ C,
              scales = "free", nrow = 3, strip.position = c("top"),
-             labeller = label_glue('C = {`C`}')) +
+             labeller = label_glue('v = {`v`}, C = {`C`}')) +
   labs(x = expression(~italic(r)~', the relatedness coefficient'),
        y = ~delta~'(inbreeding depression)',
        fill = "Inbreeding fitness",
@@ -1095,22 +1124,18 @@ Female_cyto_plot
 Male_cyto_plot
 ```
 
-
 # Miscellaneous notes
 
 **The costs of mating**
 
-- Inbreeding depression
+-   Inbreeding depression
 
-- Sperm limitation (or some other form of parental investment that reduces the chance of mating again) - C must vary and be focused on. 
+-   Sperm limitation (or some other form of parental investment that reduces the chance of mating again) - C must vary and be focused on.
 
 **The costs of not mating**
 
-- Matelessness. Currently, this is why increasing $C$ reduces the tolerance towards inbreeding depression. Females foregoing reproduction with a relative are more likely to find a receptive male later in the cycle when $C$ is large.
+-   Matelessness. Currently, this is why increasing $C$ reduces the tolerance towards inbreeding depression. Females foregoing reproduction with a relative are more likely to find a receptive male later in the cycle when $C$ is large.
 
 ### Tasks
 
-- If successful start coding the larger simulation
-
-
-
+-   If successful start coding the larger simulation
