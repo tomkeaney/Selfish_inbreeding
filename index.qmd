@@ -3,7 +3,6 @@ title: "When not to avoid inbreeding: a gene's eye view perspective"
 author: "Thomas Keaney, Arvid Agren and Hanna Kokko (no particular order yet)"
 execute: 
   warning: false
-
 ---
 
 ## Load packages
@@ -976,7 +975,7 @@ make_genomic_conflict_plot <-
        #    linetype = 2) +
       scale_fill_gradientn(colours = pal2, limits = c(-1.25, 1.1), na.value = "white",
                            labels = c("Strong conflict", -0.5, "No conflict", 0.5, "Strong conflict")) +
-      facet_wrap(C~contrast, nrow = 4,
+      facet_wrap(C~contrast, nrow = 2,
                  scales = "free", strip.position = c("top"),
                  labeller = label_glue('contrast: {`contrast`}, C = {`C`}')) +
       labs(x = expression(~italic(r)~', the relatedness coefficient'),
