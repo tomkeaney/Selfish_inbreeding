@@ -11,6 +11,12 @@ website:
       - href: index.qmd
         text: Modelling progress
 
+    tools:
+      - icon: github
+        menu:
+          - text: Source Code
+            url:  https://github.com/tomkeaney/Selfish_inbreeding
+
 format:
   html:
       theme: Minty # browse these here: https://quarto.org/docs/output-formats/html-themes.html

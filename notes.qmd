@@ -62,3 +62,16 @@ $~$
 
 - Models like our developing one do not consider purging dynamics that should occur if inbreeding becomes common.
 
+### 28/09/23
+
+Grafen 1985 - A geometric view of relatedness
+
+- Crozier's relatedness (1970) = genetic similiarity: the extent to which they possess the same alleles (think genomic relatedness matrices)
+
+- Crozier's relationship (1970) = a measure of common ancestry that can be estimated from a pedigree (think animal models)
+
+- Price's theorem is helpful. One important point is to divide the individual by its ploidy. This really matters for the inbreeding question.
+
+- My conclusion: the genetic similarity between an individual and a partner's gametes ($ra$) will work
+
+- This presents a minor problem - immediately after mutation very high $ra$ values are impossible to find, as there aren't any individuals homozygous for the inbreeding allele.
