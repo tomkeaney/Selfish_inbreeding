@@ -336,7 +336,7 @@ Male_plot
 
 These panels show the parameter space where conflict is expected between alleles on different chromosomes. We find that intragenomic conflict over inbreeding is sex, chromosome and mating system (approximated by $c$) specific. 
 
-```{r, fig.width=9}
+```{r, fig.height=7, fig.width=8.6}
 
 Intragenomic_conflict_females <-
   results %>%
@@ -449,7 +449,7 @@ icm #+ plot_layout(guides = "collect")
 
 These panels show where loci are expected to be under intralocus sexual conflict over inbreeding preference. In regions of sexual conflict, inbreeding preference is always favoured in males, but has negative fitness consequences if expressed by females (assuming that males invest less into mating than females). 
 
-```{r}
+```{r, fig.width=8}
 
 autosomal_data <-
   results %>%

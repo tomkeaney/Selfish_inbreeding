@@ -27,3 +27,4 @@ format:
       code-fold: true # fold code up for neater display
       smooth-scroll: true 
       embed-resources: true # output doc contains all info needed to display html
+      fig-format: png
