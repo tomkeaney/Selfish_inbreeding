@@ -1,6 +1,6 @@
 ---
 title: "Notes"
-author: "Thomas Keaney, Arvid Agren and Hanna Kokko (no particular order yet)"
+author: "Thomas Keaney, Arvid Agren and Hanna Kokko"
 execute: 
   warning: false
   
@@ -62,16 +62,54 @@ $~$
 
 - Models like our developing one do not consider purging dynamics that should occur if inbreeding becomes common.
 
-### 28/09/23
+### What is relatedness exactly?
 
-Grafen 1985 - A geometric view of relatedness
+**Hamilton 1963 & 1964**
 
-- Crozier's relatedness (1970) = genetic similiarity: the extent to which they possess the same alleles (think genomic relatedness matrices)
+- Wright's coefficient of relationship - a pedigree based measure
+
+**Hamilton 1971 & 1972**
+
+- Regression coefficient between genotype of actor and recipient
+
+**Michod and Hamilton 1980 - Coefficients of relatedness in sociobiology**
+
+- $r = \frac{Cov(A_P, R_F)}{Cov(A_P, A_F)}$
+
+- where $A_P$ is the genetically encoded altruistic phenotype of the actor (with values 0, 0.5, 1 corresponding to the three possible genotypes, AA, Aa and aa)
+
+- A_F is the frequency of the altruistic genotype in the actor
+
+- R indicates the recepient
+
+- Orlove 1975 and Orlove and Wood 1978 should be cited here as well
+
+**Grafen 1985 - A geometric view of relatedness**
+
+- Crozier's relatedness (1970) = genetic similarity: the extent to which they possess the same alleles (think genomic relatedness matrices)
 
 - Crozier's relationship (1970) = a measure of common ancestry that can be estimated from a pedigree (think animal models)
 
 - Price's theorem is helpful. One important point is to divide the individual by its ploidy. This really matters for the inbreeding question.
 
-- My conclusion: the genetic similarity between an individual and a partner's gametes ($ra$) will work
+**Gardner, West and Wild 2011 - The genetical theory of kin selection**
 
-- This presents a minor problem - immediately after mutation very high $ra$ values are impossible to find, as there aren't any individuals homozygous for the inbreeding allele.
+- Tend to agree with Orlove and Wood 1978: $\frac{Cov(g', g)}{Cov(g, g)}$
+
+- Note that these are all individual measures of relatedness - we need to edit slightly to get gene's eye view measures.
+
+## 07/11/23
+
+- r should not be called r. It is the multiplication of two conditional probabilities. 
+
+- The problem with current r for our purposes is that inclusive fitness is an individual level fitness metric. 
+
+- One plot is individual level fitness loss (strategic reference gene equivalent) from inbreeding as a bar plot for optimal level of inbreeding at each chromosome
+
+- Interlocus (or more accurately inter-chromosome) sexual conflict plot
+
+- Haplodiploids not from the a sense but the delta sense - follow-up project?
+
+
+
+

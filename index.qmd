@@ -30,8 +30,11 @@ library(stickylabeller) # labelling facets with strings in ggplot
 library(patchwork) # for combining plots 
 library(geomtextpath) # for curved plot annotations
 library(ggtext) # for markdown syntax in plot labels
-library(patchwork)
-library(ggnewscale)
+library(patchwork) # for patching plots together
+library(ggnewscale) # to reset scales in plots, allowing multiple fill arguments in ggplot
+library(data.table) # for efficient handling of large dataframes
+library(dtplyr) # for tidyverse functions that can be used on data tables
+
 ```
 
 # The model
@@ -165,7 +168,7 @@ inbreeding_equilibria_2 %>%
   scale_x_continuous(expand = c(0.009, 0)) + 
   scale_y_continuous(expand = c(0.025, 0)) +
   theme_bw() +
-  theme(text = element_text(size = 14),
+  theme(text = element_text(size = 18),
         legend.position = "none",
         axis.title.x = element_markdown())
 ```
@@ -176,15 +179,15 @@ $~$
 
 Parker's seminal equations:
 
-In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression. The key departure from the monogamous case is that a cost to future reproductive success is included, with the potential to be greater in females than males.
+In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression. The key departure from the unlimited polygyny case presented in the above equations is that a cost to future reproductive success is included for males, i.e. due to finite sperm production, parental care, or harmful mating behaviour such as sexual cannibalism.
 
-For males he found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
+For males, Parker found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
 
 $$n(1 - \delta) + rn(1- \delta) - cn \gt rn$$
 
 the first term is the direct number of alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing, and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he forgone mating).
 
-$c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males contribute only sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c = 0$.
+$c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males only contribute cheaply produced sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c ~ 0$.
 
 We add the $a$ variable to the equation and letting $n = 1$, simplify to
 
@@ -256,7 +259,7 @@ results <-
          male_inbreeding_fitness = (1-D) + r*a*(1-D) - c,
          female_outbreeding_fitness = 1,
          male_outbreeding_fitness = r*a,
-         female_fitness_contrast = female_inbreeding_fitness - female_outbreeding_fitness,
+         female_fitness_contrast = female_inbreeding_fitness - female_outbreeding_fitness, # this is close to a selection differential
          male_fitness_contrast = male_inbreeding_fitness - male_outbreeding_fitness)
 
 ```
@@ -270,6 +273,19 @@ In the figure below, the dashed lines indicate the level of inbreeding depressio
 pal1 <- met.brewer("OKeeffe1", n=100, direction = -1)
 pal2 <- met.brewer("Hiroshige", n=50, direction = -1)
 #pal2 <- moma.colors("Avedon", n = 50, direction = 1)
+
+oranges <- c("#ffe6b7", "#ffd06f", "#f7aa58", "#ef8a47", "#e76254") 
+
+blues <- c("#aadce0", "#72bcd5", "#528fad", "#376795", "#1e466e")
+
+# Lowest colour for all gradients
+gradient_base <- oranges[1]
+
+gradient_max <- oranges[5]
+
+# Create a list of gradients for each colour 2 to 10 over five steps from 
+# gradient_base grey (low) to colour (high)
+my_gradient <- colorRampPalette(c(gradient_base, gradient_max))(50)
   
 Female_plot <-
   results %>%
@@ -332,98 +348,104 @@ Male_plot
 
 ```
 
-### When is there intragenomic conflict over inbreeding?
+### When is there evolutionary conflict over inbreeding?
 
-These panels show the parameter space where conflict is expected between alleles on different chromosomes. We find that intragenomic conflict over inbreeding is sex, chromosome and mating system (approximated by $c$) specific. 
+To quantify conflict in its various forms we use a version of the _I_ index presented in [Innocenti and Morrow (2010)](https://academic.oup.com/evolut/article/64/9/2775/6854370).
 
-```{r, fig.height=7, fig.width=8.6}
+Panels in columns A and B show the parameter space where conflict is expected between alleles on different chromosomes - so called inter-chromosomal conflict.
+
+```{r}
 
 Intragenomic_conflict_females <-
   results %>%
   select(1:4, female_fitness_contrast) %>%
   pivot_wider(names_from = a, values_from = female_fitness_contrast) %>% 
-  mutate(`Autosomal - X-linked` = `1` - `0.5`,
-         `Autosomal - Z-linked` = 0,
-         `Autosomal - W-linked & Z-linked - W-linked` = `1` - `0`) %>% 
-  pivot_longer(cols = contains("-"), names_to = "contrast", values_to = "intragenomic_conflict") %>% 
+  #mutate(`Autosome - X` = `1` - `0.5`,
+   #      `Autosome - Z` = 0,
+    #     `Autosome - W & Z - W` = `1` - `0`) %>% 
+  mutate(`Autosome vs X` = `1` * `0.5` / sqrt(((`1`)^2 + (`0.5`)^2)/2),
+         `Autosome vs Z` = `1` * `1` / sqrt(((`1`)^2 + (`1`)^2)/2),
+         `Autosome & Z vs W` = `1` * `0` / sqrt(((`1`)^2 + (`0`)^2)/2)) %>% 
+  pivot_longer(cols = 7:9, names_to = "contrast", values_to = "Evolutionary_conflict") %>% 
   mutate(relationship = case_when(
-    contrast == "Autosomal - X-linked" & `1` > 0 & `0.5` > 0 ~
-      "Inbreeding favoured at both loci",
-    contrast == "Autosomal - X-linked" & `1` < 0 & `0.5` < 0 ~
-       "Inbreeding deleterious at both loci",
+    contrast == "Autosome vs X" & `1` > 0 & `0.5` > 0 ~
+      "Inbreeding favoured in both contexts",
+    contrast == "Autosome vs X" & `1` < 0 & `0.5` < 0 ~
+       "Inbreeding deleterious in both contexts",
     
-    contrast == "Autosomal - Z-linked" & `1` > 0 ~
-      "Inbreeding favoured at both loci",
-    contrast == "Autosomal - Z-linked" & `1` < 0 ~
-       "Inbreeding deleterious at both loci",
+    contrast == "Autosome vs Z" & `1` > 0 ~
+      "Inbreeding favoured in both contexts",
+    contrast == "Autosome vs Z" & `1` < 0 ~
+       "Inbreeding deleterious in both contexts",
     
-    contrast == "Autosomal - W-linked & Z-linked - W-linked" & `1` > 0 & `0` > 0 ~
-      "Inbreeding favoured at both loci",
-    contrast == "Autosomal - W-linked & Z-linked - W-linked" & `1` < 0 & `0` < 0 ~
-       "Inbreeding deleterious at both loci",
-    `0` == 0 & `0.5` == 0 & `1` == 0 ~ "Inbreeding deleterious at both loci",  
+    contrast == "Autosome & Z vs W" & `1` > 0 & `0` > 0 ~
+      "Inbreeding favoured in both contexts",
+    contrast == "Autosome & Z vs W" & `1` < 0 & `0` < 0 ~
+       "Inbreeding deleterious in both contexts",
+    `0` == 0 & `0.5` == 0 & `1` == 0 ~ "Inbreeding deleterious in both contexts",  
     .default = "Intragenomic conflict")) %>% 
-  mutate(contrast = fct_relevel(contrast, "Autosomal - X-linked", "Autosomal - Z-linked",
-                                "Autosomal - W-linked & Z-linked - W-linked")) %>% 
-  filter(c != 1, c != 0.75, c != 0.25)  # remove if we want more c values
+  mutate(contrast = fct_relevel(contrast, "Autosome vs X", "Autosome vs Z",
+                                "Autosome & Z vs W")) %>% 
+  filter(c == 0)  # remove if we want more c values
 
 Intragenomic_conflict_males <-
   results %>%
   select(1:4, male_fitness_contrast) %>%
   pivot_wider(names_from = a, values_from = male_fitness_contrast) %>% 
-  mutate(`Autosomal - X-linked` = 0,
-         `Autosomal - Z-linked` = `1` - `0.5`,
-         `Autosomal - Y-linked & X-linked - Y-linked` = `1` - `0`) %>% 
-  pivot_longer(cols = contains("-"), names_to = "contrast", values_to = "intragenomic_conflict") %>% 
+  #mutate(`Autosome - X` = 0,
+   #      `Autosome - Z` = `1` - `0.5`,
+    #     `Autosome - Y & X - Y` = `1` - `0`) %>%
+  mutate(`X vs Autosome` = `1` * `1` / sqrt(((`1`)^2 + (`1`)^2)/2),
+         `Z vs Autosome` = `1` * `0.5` / sqrt(((`1`)^2 + (`0.5`)^2)/2),
+         `Y vs Autosome & X` = `1` * `0` / sqrt(((`1`)^2 + (`0`)^2)/2)) %>% 
+  pivot_longer(cols = 7:9, names_to = "contrast", values_to = "Evolutionary_conflict") %>% 
   mutate(relationship = case_when(
-    contrast == "Autosomal - X-linked" & `1` > 0 ~
-      "Inbreeding favoured at both loci",
-    contrast == "Autosomal - X-linked" & `1` < 0 ~
-       "Inbreeding deleterious at both loci",
+    contrast == "X vs Autosome" & `1` > 0 ~
+      "Inbreeding favoured in both contexts",
+    contrast == "X vs Autosome" & `1` < 0 ~
+      "Inbreeding deleterious in both contexts",
     
-    contrast == "Autosomal - Z-linked" & `1` > 0 & `0.5` > 0 ~
-      "Inbreeding favoured at both loci",
-    contrast == "Autosomal - Z-linked" & `1` < 0 & `0.5` < 0 ~
-       "Inbreeding deleterious at both loci",
+    contrast == "Z vs Autosome" & `1` > 0 & `0.5` > 0 ~
+      "Inbreeding favoured in both contexts",
+    contrast == "Z vs Autosome" & `1` < 0 & `0.5` < 0 ~
+      "Inbreeding deleterious in both contexts",
     
-    contrast == "Autosomal - Y-linked & X-linked - Y-linked" & `1` > 0 & `0` > 0 ~
-      "Inbreeding favoured at both loci",
-    contrast == "Autosomal - Y-linked & X-linked - Y-linked" & `1` < 0 & `0` < 0 ~
-       "Inbreeding deleterious at both loci",
-    `0` == 0 & `0.5` == 0 & `1` == 0 ~ "Inbreeding deleterious at both loci",  
+    contrast == "Y vs Autosome & X" & `1` > 0 & `0` > 0 ~
+      "Inbreeding favoured in both contexts",
+    contrast == "Y vs Autosome & X" & `1` < 0 & `0` < 0 ~
+      "Inbreeding deleterious in both contexts",
+    `0` == 0 & `0.5` == 0 & `1` == 0 ~ "Inbreeding deleterious in both contexts",  
     .default = "Intragenomic conflict")) %>% 
-    mutate(contrast = fct_relevel(contrast, "Autosomal - X-linked", "Autosomal - Z-linked",
-                                "Autosomal - Y-linked & X-linked - Y-linked")) %>% 
-  filter(c != 1, c != 0.75, c != 0.25) # remove if we want more c values
+  mutate(contrast = fct_relevel(contrast, "X vs Autosome", "Z vs Autosome",
+                                "Y vs Autosome & X")) %>% 
+  filter(c == 0) # remove if we want more c values
     
 
 make_genomic_conflict_plot <- 
-  function(data, enter_title){
+  function(data, enter_title, colour_pal){
     data %>% 
       ggplot(aes(x = r, y = D)) +
       geom_blank() +
       geom_tile(data = data %>% filter(relationship == "Intragenomic conflict"),
-                aes(fill = intragenomic_conflict)) + 
-      scale_fill_gradientn(colours = pal2, limits = c(-1.2, 1.1), #na.value = "white",
-                           labels = c("Strong conflict", -0.5, 0, 0.5, "Strong conflict")) +
-      labs(fill = "Intragenomic conflict") +
+                aes(fill = Evolutionary_conflict*-1)) + 
+      #geom_tile(data = data,
+      #         aes(fill = Evolutionary_conflict)) + 
+      scale_fill_gradientn(colours = colour_pal, limits = c(0, 0.6), #na.value = "white",
+                           breaks = c(0, 0.6),
+                           labels = c("Weak conflict", "Strong conflict")) +
+      labs(fill = "Evolutionary conflict") +
       new_scale_fill() +
       geom_tile(data = data %>% filter(relationship != "Intragenomic conflict"),
                 aes(fill = relationship), alpha = 0.75) +
-     # stat_contour(data = data %>% filter(relationship == "Intragenomic conflict"),
-      #             aes(z = intragenomic_conflict), colour = "black",
-       #     breaks = c(-.10, -.20, -.30, -.40, -.50, -.60, -.70, -.80, -.90, -.100,
-        #               .10, .20, .30, .40, .50, .60, .70, .80, .90, .100),
-         #   upright = TRUE) +
-      #stat_contour(aes(z = intragenomic_conflict*100), colour = "black", breaks = 0,
-       #    linetype = 2) +
       scale_fill_manual(values = c("#fbe6c5", "#d2fbd4"), 
-                                   labels = c("Inbreeding deleterious at both loci", 
-                                              "Inbreeding favoured at both loci")) +
-      facet_wrap(contrast~c, nrow = 3,
+                        labels = c("Inbreeding deleterious\nin both contexts", 
+                               "Inbreeding favoured\nin both contexts")) +
+      stat_contour(aes(z = Evolutionary_conflict*-1), colour = "black", binwidth = 25,
+                   breaks = c(0, 0.2, 0.4, 0.6)) +
+      facet_wrap(~contrast, nrow = 3,
                  scales = "free", strip.position = c("top"),
-                 labeller = label_glue('{`contrast`}\nc = {`c`}')) +
-      labs(x = '_r_, the relatedness coefficient',
+                 labeller = label_glue('{`contrast`}')) +
+      labs(x = '_r_ (relatedness coefficient)',
            y = ~delta~'(inbreeding depression)',
            fill = "Evolutionary concordance",
            title = enter_title) +
@@ -433,36 +455,32 @@ make_genomic_conflict_plot <-
             panel.grid.minor = element_blank(),
             strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
             axis.title.x = element_markdown(),
-            plot.title = element_text(hjust = 0.5))
+            plot.title = element_text(hjust = 0.5, size = 10))
   }
 
-icf <- make_genomic_conflict_plot(Intragenomic_conflict_females, "A. Intragenomic conflict in females")
-icm <- make_genomic_conflict_plot(Intragenomic_conflict_males, "B. Intragenomic conflict in males")
-
-icf
-
-icm #+ plot_layout(guides = "collect")
+icf <- make_genomic_conflict_plot(Intragenomic_conflict_females, "A. Inter-chromosomal conflict in females", oranges)
+icm <- make_genomic_conflict_plot(Intragenomic_conflict_males, "B. Inter-chromosomal conflict in males", oranges)
 
 ```
 
-### When is there sexual conflict over inbreeding?
+Panels in column C show where loci are expected to be under intra-chromosomal sexual conflict over inbreeding preference. In regions of sexual conflict, inbreeding preference is always favoured in males, but has negative fitness consequences if expressed by females (assuming that males invest less into mating than females). Note that intra-chromosomal conflict encompasses both the intra- and inter-locus forms of sexual conflict.   
 
-These panels show where loci are expected to be under intralocus sexual conflict over inbreeding preference. In regions of sexual conflict, inbreeding preference is always favoured in males, but has negative fitness consequences if expressed by females (assuming that males invest less into mating than females). 
-
-```{r, fig.width=8}
+```{r}
 
 autosomal_data <-
   results %>%
   filter(a == 1, c != 1, c != 0.25) %>% 
-  mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
+  #mutate(Evolutionary_conflict = male_fitness_contrast - female_fitness_contrast) %>%
+  mutate(Evolutionary_conflict = female_fitness_contrast * male_fitness_contrast / 
+           sqrt(((female_fitness_contrast)^2 + (male_fitness_contrast)^2)/2)) %>% 
   mutate(relationship = 
            case_when(female_fitness_contrast < 0 & male_fitness_contrast > 0 
                      ~ "Sexual conflict",
                      female_fitness_contrast < 0 & male_fitness_contrast < 0 
-                     ~ "Inbreeding deleterious at both loci",
+                     ~ "Inbreeding deleterious in both contexts",
                      female_fitness_contrast > 0 & male_fitness_contrast > 0 
-                     ~ "Inbreeding favoured at both loci"),
-         Location = "Autosomal") 
+                     ~ "Inbreeding favoured in both contexts"),
+         Location = "Autosome") 
   
 
 
@@ -477,15 +495,17 @@ X_data <-
       select(1:4, starts_with("male")) %>% 
       rename(a_male = a) # this step makes the join work as intended
   ) %>%
-  mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>% 
+  #mutate(Evolutionary_conflict = male_fitness_contrast - female_fitness_contrast) %>% 
+  mutate(Evolutionary_conflict = female_fitness_contrast * male_fitness_contrast / 
+           sqrt(((female_fitness_contrast)^2 + (male_fitness_contrast)^2)/2)) %>% 
   mutate(relationship = 
            case_when(female_fitness_contrast < 0 & male_fitness_contrast > 0 
                      ~ "Sexual conflict",
                      female_fitness_contrast < 0 & male_fitness_contrast < 0 
-                     ~ "Inbreeding deleterious at both loci",
+                     ~ "Inbreeding deleterious in both contexts",
                      female_fitness_contrast > 0 & male_fitness_contrast > 0 
-                     ~ "Inbreeding favoured at both loci"),
-         Location = "X-linked")
+                     ~ "Inbreeding favoured in both contexts"),
+         Location = "X")
 
 Z_data <-
   results %>% 
@@ -498,49 +518,62 @@ Z_data <-
       select(1:4, starts_with("male")) %>% 
       rename(a_male = a)
   ) %>% 
-  mutate(sexual_conflict = male_fitness_contrast - female_fitness_contrast) %>%
+  #mutate(Evolutionary_conflict = male_fitness_contrast - female_fitness_contrast) %>%
+  mutate(Evolutionary_conflict = female_fitness_contrast * male_fitness_contrast / 
+           sqrt(((female_fitness_contrast)^2 + (male_fitness_contrast)^2)/2)) %>% 
   mutate(relationship = 
            case_when(female_fitness_contrast < 0 & male_fitness_contrast > 0 
                      ~ "Sexual conflict",
                      female_fitness_contrast < 0 & male_fitness_contrast < 0 
-                     ~ "Inbreeding deleterious at both loci",
+                     ~ "Inbreeding deleterious in both contexts",
                      female_fitness_contrast > 0 & male_fitness_contrast > 0 
-                     ~ "Inbreeding favoured at both loci"),
-         Location = "Z-linked")
+                     ~ "Inbreeding favoured in both contexts"),
+         Location = "Z")
 
-plotting_data <- bind_rows(autosomal_data, X_data, Z_data)
+plotting_data <- bind_rows(autosomal_data, X_data, Z_data) %>% filter(c == 0)
 
 Sexual_conflict_plot <-
   plotting_data %>%
   ggplot(aes(x = r, y = D)) +
   geom_blank() +
   geom_tile(data = plotting_data %>% filter(relationship == "Sexual conflict"),
-            aes(fill = sexual_conflict)) + 
-  scale_fill_gradientn(colours = pal2, limits = c(-1.2, 1.1), #na.value = "white",
-                       labels = c("Strong conflict, female (+)", -0.5, 
-                                  "No conflict", 0.5, "Strong conflict, male (+)")) +
-  labs(fill = "Sexual conflict") +
+            aes(fill = Evolutionary_conflict*-1)) + 
+  #scale_fill_gradientn(colours = pal2, limits = c(-1.2, 1.1), #na.value = "white",
+   #                    labels = c("Strong conflict, female (+)", -0.5, 
+    #                              "No conflict", 0.5, "Strong conflict, male (+)")) +
+  scale_fill_gradientn(colours = oranges, limits = c(0, 0.6), #na.value = "white",
+                       breaks = c(0, 0.6),
+                       labels = c("Weak conflict", "Strong conflict")) +
+  labs(fill = "Evolutionary conflict") +
   new_scale_fill() +
   geom_tile(data = plotting_data %>% filter(relationship != "Sexual conflict"),
             aes(fill = relationship), alpha = 0.75) +
   scale_fill_manual(values = c("#fbe6c5", "#d2fbd4"), 
-                    labels = c("Inbreeding deleterious at both loci", 
-                               "Inbreeding favoured at both loci")) +
-  facet_wrap(Location~c, nrow = 3,
+                    labels = c("Inbreeding deleterious\nin both contexts", 
+                               "Inbreeding favoured\nin both contexts")) +
+  stat_contour(aes(z = Evolutionary_conflict*-1), colour = "black", binwidth = 25,
+                   breaks = c(0, 0.2, 0.4, 0.6)) +
+  facet_wrap(~Location, nrow = 3,
              scales = "free", strip.position = c("top"),
-             labeller = label_glue('{`Location`}, c = {`c`}')) +
-  labs(x = '_r_, the relatedness coefficient',
+             labeller = label_glue('{`Location`}')) +
+  labs(x = '_r_ (relatedness coefficient)',
        y = ~delta~'(inbreeding depression)',
-       fill = "Intensity of\nsexual conflict") +
+       fill = "Evolutionary concordance",
+       title = "C. Intra-chromosomal sexual conflict") +
   scale_x_continuous(expand = c(0, 0)) + 
   scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
-        axis.title.x = element_markdown())
-  
-Sexual_conflict_plot
+        axis.title.x = element_markdown(),
+        plot.title = element_text(hjust = 0.5, size = 10))
+
 ```
 
+## Make Figure 1
+
+```{r, fig.height=7, fig.width=8.6}
+icf + icm + Sexual_conflict_plot + plot_layout(guides = "collect")
+```
 
 # The simulation
 
@@ -552,20 +585,20 @@ Parker's $c$ value offers a simple, intuitive way to model the cost of mating fo
 
 Something to think about is how we set genetics to affect the expression of inbreeding tolerance/preference. Things that matter include:
 
-1. do we consider inbreeding expression as the additive result of multiple loci on different chromosomes, or do we consider each case separately.
+1. do we consider inbreeding expression as the additive result of multiple loci on different chromosomes, or do we consider each case separately. **Probably not this**
 
-2. is inbreeding expression binary, a threshold trait or a quantitative, normally distributed trait. The latter would allow us to model evolution towards some maximum. The former cases are simpler to code (particularly the first case) but still allow us to answer a very similar question. 
+2. is inbreeding expression binary, a threshold trait or a quantitative, normally distributed trait. The latter would allow us to model evolution towards some maximum. The former cases are simpler to code (particularly the first case) but still allow us to answer a very similar question. **I have this as an additive case - being heterozygous leads to expression of inbreeding preference half of the time.**
 
 ```{r}
 
-make_mating_table <- function(architecture){
+make_mating_table <- function(gene_location){
   
-  make_offspring <- function(X, Y, type, zygote_freq, architecture){
+  make_offspring <- function(X, Y, type, zygote_freq, gene_location){
     tibble(Female_genotype = X,
            Male_genotype = Y,
            type,
            zygote_freq,
-           locus_type = architecture)
+           locus_type = gene_location)
   }
   
   
@@ -610,7 +643,7 @@ make_mating_table <- function(architecture){
          #          "C_O.Male")) %>% 
         #mutate(locus_type = "cytoplasmic")
     #) %>% 
-    #mutate(locus_type = architecture)
+    #mutate(locus_type = gene_location)
   
   # Specify the possible offspring genotypes for all the potential crosses; we use these for the type argument in the make_offspring function
   
@@ -670,8 +703,8 @@ make_mating_table <- function(architecture){
   
   # IO x IY_O
   
-  xy_genotype_6 <- c("X_IX_I.Female", "X_IX_O.Female", 
-                     "X_IY_O.Male", "X_OY_O.Male")
+  xy_genotype_6 <- c("X_IX_I.Female", "X_IY_O.Male", 
+                     "X_IX_O.Female", "X_OY_O.Male")
   
   # IO x OY_I
   
@@ -703,16 +736,16 @@ make_mating_table <- function(architecture){
   
   # IW_I x II
   
-  zw_genotype_1 <- c("Z_IW_I.Female", "Z_IZ_I.Male")
+  zw_genotype_1 <- c("Z_IZ_I.Male", "Z_IW_I.Female")
   
   # IW_I x IO
   
-  zw_genotype_2 <- c("Z_IW_I.Female", "Z_IZ_I.Male", 
-                     "Z_OW_I.Female", "Z_IZ_O.Male")
+  zw_genotype_2 <- c("Z_IZ_I.Male", "Z_IZ_O.Male", 
+                     "Z_IW_I.Female", "Z_OW_I.Male")
   
   # IW_I x OO
   
-  zw_genotype_3 <- c("Z_OW_I.Female", "Z_IZ_O.Male")
+  zw_genotype_3 <- c("Z_IZ_O.Male", "Z_OW_I.Female")
   
   # IW_O x II
   
@@ -720,9 +753,8 @@ make_mating_table <- function(architecture){
   
   # IW_O x IO
   
-  zw_genotype_5 <- c("Z_IZ_I.Male",
-                     "Z_IW_O.Female", "Z_IZ_O.Male", 
-                     "Z_OW_O.Female")
+  zw_genotype_5 <- c("Z_IZ_I.Male", "Z_IZ_O.Male",
+                     "Z_IW_O.Female", "Z_OW_O.Female")
   
   # IW_O x OO
   
@@ -730,29 +762,29 @@ make_mating_table <- function(architecture){
   
   # OW_I X II
   
-  zw_genotype_7 <- c("Z_IW_I.Female", "Z_IZ_O.Male")
+  zw_genotype_7 <- c("Z_IZ_O.Male", "Z_IW_I.Female")
   
   # OW_I x IO
   
-  zw_genotype_8 <- c("Z_IW_I.Female", "Z_IZ_O.Male", 
-                     "Z_OW_I.Female", "Z_OZ_O.Male")
+  zw_genotype_8 <- c("Z_IZ_O.Male", "Z_OZ_O.Male",
+                     "Z_IW_I.Female", "Z_OW_I.Female")
   
   # OW_I x OO
   
-  zw_genotype_9 <- c("Z_OW_I.Female", "Z_OZ_O.Male")
+  zw_genotype_9 <- c("Z_OZ_O.Male", "Z_OW_I.Female")
   
   # OW_O X II
   
-  zw_genotype_10 <- c("Z_IW_O.Female", "Z_IZ_O.Male")
+  zw_genotype_10 <- c("Z_IZ_O.Male", "Z_IW_O.Female")
   
   # OW_O x IO
   
-  zw_genotype_11 <- c("Z_IW_O.Female", "Z_IZ_O.Male", 
-                      "Z_OW_O.Female", "Z_OZ_O.Male")
+  zw_genotype_11 <- c("Z_IZ_O.Male", "Z_OZ_O.Male",
+                      "Z_IW_O.Female", "Z_OW_O.Female")
   
   # OW_O x OO
   
-  zw_genotype_12 <- c("Z_OW_O.Female", "Z_OZ_O.Male")
+  zw_genotype_12 <- c("Z_OZ_O.Male", "Z_OW_O.Female")
   
   # cytoplasmic
   
@@ -817,497 +849,737 @@ make_mating_table <- function(architecture){
       make_offspring("Z_IW_O", "Z_IZ_I", zw_genotype_4, freq_2, "ZW"),
       make_offspring("Z_IW_O", "Z_IZ_O", zw_genotype_5, freq_4, "ZW"),
       make_offspring("Z_IW_O", "Z_OZ_O", zw_genotype_6, freq_2, "ZW"),
-      make_offspring("Z_OW_O", "Z_IZ_I", zw_genotype_7, freq_2, "ZW"),
-      make_offspring("Z_OW_O", "Z_IZ_O", zw_genotype_8, freq_4, "ZW"),
-      make_offspring("Z_OW_O", "Z_OZ_O", zw_genotype_9, freq_2, "ZW"),
-      make_offspring("Z_OW_O", "Z_OZ_O", zw_genotype_10, freq_2, "ZW"),
-      make_offspring("Z_OW_O", "Z_OZ_O", zw_genotype_11, freq_4, "ZW"),
+      make_offspring("Z_OW_I", "Z_IZ_I", zw_genotype_7, freq_2, "ZW"),
+      make_offspring("Z_OW_I", "Z_IZ_O", zw_genotype_8, freq_4, "ZW"),
+      make_offspring("Z_OW_I", "Z_OZ_O", zw_genotype_9, freq_2, "ZW"),
+      make_offspring("Z_OW_O", "Z_IZ_I", zw_genotype_10, freq_2, "ZW"),
+      make_offspring("Z_OW_O", "Z_IZ_O", zw_genotype_11, freq_4, "ZW"),
       make_offspring("Z_OW_O", "Z_OZ_O", zw_genotype_12, freq_2, "ZW"),
       
-      make_offspring("C_I", "CI", c_genotype_1, freq_2, "cytoplasmic"),
-      make_offspring("C_I", "CO", c_genotype_1, freq_2, "cytoplasmic"),
-      make_offspring("C_O", "CI", c_genotype_2, freq_2, "cytoplasmic"),
-      make_offspring("C_O", "CO", c_genotype_2, freq_2, "cytoplasmic")
+      make_offspring("C_I", "C_I", c_genotype_1, freq_2, "cytoplasmic"),
+      make_offspring("C_I", "C_O", c_genotype_1, freq_2, "cytoplasmic"),
+      make_offspring("C_O", "C_I", c_genotype_2, freq_2, "cytoplasmic"),
+      make_offspring("C_O", "C_O", c_genotype_2, freq_2, "cytoplasmic")
     )) %>% 
-    filter(locus_type == architecture)
+    filter(locus_type == gene_location)
 }
 
+```
+
+Load the inheritance schemes, to speed up the simulation
+
+```{r}
+# load the possible inheritance schemes
+
+offspring_genotypes_autosome <- 
+  make_mating_table(gene_location = "autosomal") %>% 
+  select(1:4) %>% 
+  rename(zygote_type = type) %>% 
+  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
+  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
+  as.data.table()
+
+offspring_genotypes_X <- 
+  make_mating_table(gene_location = "XY") %>% 
+  select(1:4) %>% 
+  rename(zygote_type = type) %>% 
+  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
+  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
+  filter(!str_detect(Male_genotype, "Y_I")) %>% 
+  as.data.table()
+
+offspring_genotypes_Y <- 
+  make_mating_table(gene_location = "XY") %>% 
+  select(1:4) %>% 
+  rename(zygote_type = type) %>% 
+  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
+  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
+  filter(!str_detect(Female_genotype, "X_I"),
+         !str_detect(Male_genotype, "X_I")) %>% 
+  as.data.table()
+
+offspring_genotypes_Z <- 
+  make_mating_table(gene_location = "ZW") %>% 
+  select(1:4) %>% 
+  rename(zygote_type = type) %>% 
+  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
+  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
+  filter(!str_detect(Female_genotype, "W_I")) %>% 
+  as.data.table()
+
+offspring_genotypes_W <- 
+  make_mating_table(gene_location = "ZW") %>% 
+  select(1:4) %>% 
+  rename(zygote_type = type) %>% 
+  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
+  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
+  filter(!str_detect(Female_genotype, "Z_I"),
+         !str_detect(Male_genotype, "Z_I")) %>% 
+  as.data.table()
+
+offspring_genotypes_cytoplasmic <- 
+  make_mating_table(gene_location = "cytoplasmic") %>% 
+  select(1:4) %>% 
+  rename(zygote_type = type) %>% 
+  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
+  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
+  as.data.table()
 ```
 
 An example of the mating table, for an autosomal locus
 
 ```{r}
-make_mating_table("autosomal") %>% 
+make_mating_table(gene_location = "autosomal") %>% 
   rename(zygote_type = type) %>% 
   kable() %>% 
   kable_styling() %>% 
   scroll_box(height = "500px")
 ```
 
+## Build a function to create the starting population
 
-## Create the starting population
+Following Ekrem and Kokko (2023), we find the reproductive lifespans of `N` diploid individuals in a sexually reproducing population to initialise the simulation. Mortality events are drawn from an exponential distribution with rate $\lambda = 1/\mu$. The probability of mortality is therefore constant across the reproductive lifespan for each sex. 
 
-Following Ekrem and Kokko (2023), we find the reproductive lifespans of `N` diploid individuals in a sexually reproducing population to initialise the simulation. Mortality events are drawn from an exponential distribution with $\mu_F$ and $\mu_M$ for females (`female_death_rate`) and males (`male_death_rate`) respectively. The chance of mortality is therefore constant across the reproductive lifespan for each sex. $\mu_F = \mu_M = 0.2$ in the simulation run documented here.
+Lets have a look at the mean lifespan drawn from the exponential distribution parameterised with different mortality rates.
 
-Each individual possesses an inbreeding locus with two possible alleles. The `A_1` allele encodes inbreeding avoidance, whereas the `A_2` allele encodes inbreeding tolerance. We assume that the invading A_2 allele is dominant, such that any individuals carrying the allele express inbreeding tolerance (we can relax this assumption once I have it coded and working). 
+```{r}
+#exponential_draws <-
+  tibble(`Mean lifespan` = seq(from = 0.01, to = 2.01, by = 0.1)) %>% 
+  mutate(`Corresponding mortality rate` = 1/`Mean lifespan`) %>% 
+  arrange(-`Mean lifespan`) %>% 
+  pander()
+
+```
+
+We use these values to inform our parameterisation of inbreeding depression ($\delta$). Individuals that don't inbreed produce offspring with a mean lifespan of 2 time units. We then increase the rate of mortality to increase the severity of inbreeding depression, lowering the mean lifespan of inbred offspring.
 
 ```{r}
 
 # build the function to find individual lifespans
-
+ 
 build_starting_pop <-
-  function(seed, pop_size, death_rate, Sex){
-    set.seed(seed)
-    # death times are drawn from an exponential distribution  
-    rexp(n = pop_size, rate = death_rate) %>% 
-      as_tibble() %>%
-      rename(Lifespan = value) %>% 
-      mutate(alive = "YES",
-             Sex = Sex,
-             Enter_time = 0,
-             Mortality_time = round(Lifespan + Enter_time, 3),
-             Genotype = "A_OA_O")}
-  
-# code the initial mutational event (this is out of date but still helpful)
-
-#Females_mutation_event <-
- # Females %>% 
-#  mutate(allele_1 = case_when(Individual_ID == sample_n(Female_lifespan, 1) %>% pull(Individual_ID) ~ "A_OA_I",
- #                             .default = genotype))
-#Males_mutation_event <-
- # Males %>% 
-#  mutate(allele_1 = case_when(Individual_ID == sample_n(Male_lifespan, 1) %>% pull(Individual_ID) ~ "A_OA_I",
-  #                            .default = genotype))
-
-# this might work better
-
-#candidate_list <- candidate_list %>% mutate(mated = case_when(row_number() %in% c(1, 6) ~ "YES", .default = mated))
+  function(seed, pop_size, mean_lifespan){
+    #set.seed(seed)
+    
+    population <-
+      data.table(Lifespan = rexp(n = pop_size, rate = 1/mean_lifespan),
+                 Sex = rbinom(n = pop_size, 1, prob = 0.5),
+                 birth_time = 0,
+                 matings = 0)
+    
+    population[, `:=` (Genotype = ifelse(Sex > 0, Female_starting_genotype, Male_starting_genotype),
+                      Mortality_time = Lifespan,
+                      breeding = Sex,
+                      Individual_ID = .I,
+                      Family_ID = rep(1:(.N/10), each = 10, length.out = .N))]
+  }
 
 ```
 
-## Create a candidate list of mating events
+## Create a function to add the inbreeding allele to the population
 
-With individual reproductive lifespans known, we can then calculate time stamps for every possible female-male encounter for this set of individuals. For each focal male, the time to finding each specific female is drawn from a negative exponential distribution, with rate $\frac{v}{N/2}$. $v$ represents the search efficiency of males in the population, where higher values indicate more efficient mate finding. The end result is a complete schedule of female-male interactions across the generation's reproductive lifespan.
-
-Here, we set `N=1000` and find the encounter time for the $500^2$ possible female-male encounters.
-
-$v$ is one of the parameters that we can vary to change the risk of an individual going unmated. Here, we create candidate lists of mating events where $v = 1$, $v =10$, $v = 100$ and $v = 1000$ (where v = 100 equates to a search efficiency equal to the rate of mortality when $N = 1000)$.
+Each individual possesses an inbreeding locus with two possible alleles. The `A_O` allele encodes inbreeding avoidance, whereas the `A_I` allele encodes inbreeding tolerance. We assume that dominance is additive, such that any individuals carrying one copy of the `A_I` allele express inbreeding tolerance in 50% of cases, whereas homozygous individuals always express a tolerance of inbreeding (**we can review this assumption once I have it coded and working**). 
 
 ```{r}
 
-candidate_timestamp_finder <-
-  function(seed, Female_candidate_IDs, Male_candidate_IDs, encounters, v){
-    set.seed(seed)
-    expand_grid(Female_ID = Female_candidate_IDs,
-                Male_ID = Male_candidate_IDs) %>% 
-      bind_cols(
-        rexp(n = encounters, rate = (v/(Female_pop_size))) %>%
-          as_tibble() %>% 
-          rename(Mate_encounter_time_stamp = value) %>% 
-          mutate(#v = as.factor(v),
-                 fitness = 1,
-                 mated = "NO",
-                 female_matings = 0,
-                 male_matings = 0)
-      ) 
+mutate_sample <- 
+  function(df, number_mutants) {
+     df[sample(which(str_detect(Genotype, pattern = chromosome)), size = number_mutants, replace = F),
+             Genotype := str_replace(Genotype, pattern = paste0(chromosome, "_O"), replacement = paste0(chromosome, "_I"))]
   }
 
-#candidate_timestamp_finder(1, 1:4, 5:9, 20, 1)
 ```
 
+## Create a function to produce a candidate list of mating events
 
-Death triggers replacement by a new breeding individual, assuming that there is >=1 successfully mated female in the population to produce this individual. If there are multiple mated females, the new individual is produced via a loaded lottery, where the probability of parentage is 1 / number of mated females, multiplied by the females relative direct fitness.
+With individual reproductive lifespans known, we can then calculate time stamps for every possible female-male encounter for this set of individuals. For each focal male, the time to finding each specific female is drawn from a negative exponential distribution, with rate $\frac{v}{N_F}$. $v$ represents the search efficiency of males in the population, where higher values indicate more efficient mate finding. The end result is a complete schedule of female-male interactions across the generation's reproductive lifespan.
 
-There is a carrying capacity version that adds a row whenever the population falls below carrying capacity. Currently, it's commented out because it behaves strangely. Compare the two methods to see this weird behaviour. 
+```{r}
+ 
+candidate_timestamp_finder <- 
+  function(Female_ID, Male_ID, v, Female_pop_size){
+    CJ(Female_ID, Male_ID)[, Mate_encounter_time_stamp := rexp(n = .N, rate = (v/(Female_pop_size)))
+    ][, `:=`( mated = 0,
+             inbred_mating = 0,
+             female_matings = 0,
+             male_matings = 0,
+             reproduced = 0,
+             counted = 0)]
+  }
+
+```
+
+## Create a function to calculate the population-wide frequency of the inbreeding allele
+
+```{r}
+
+# function for autosomal alleles
+calc_prop_autosomal_inbreeding_allele <- function(pop, heterozygous_genotype, homozygous_genotype, sex_homozygous){
+  (0.5 * length(pop$Genotype[str_detect(pop$Genotype, heterozygous_genotype)])/ nrow(pop)) + 
+    (length(pop$Genotype[str_detect(pop$Genotype, homozygous_genotype)])/ nrow(pop)) 
+}
+
+# function for hemizygous alleles: W, Y or cytoplasmic
+
+calc_prop_hemizygous_inbreeding_allele <- function(pop, heterozygous_genotype, homozygous_genotype, sex_homozygous){
+  (length(pop$Genotype[str_detect(pop$Genotype, homozygous_genotype)])/ 
+     length(pop$Genotype[str_detect(pop$Genotype, chromosome)]))
+}
+
+# function for alleles diploid in one sex and haploid in the other: X and Z
+
+calc_prop_XZ_inbreeding_allele <- function(pop, heterozygous_genotype, homozygous_genotype, sex_homozygous){
+  if(sex_homozygous == 1){
+    (0.5 * length(pop$Genotype[str_detect(pop$Genotype, heterozygous_genotype)] & pop$Sex == sex_homozygous)/ nrow(pop)) + 
+      (length(pop$Genotype[str_detect(pop$Genotype, homozygous_genotype)] & pop$Sex == sex_homozygous)/ nrow(pop)) +
+      (length(pop$Genotype[str_detect(pop$Genotype, "I")] & pop$Sex != sex_homozygous)/ nrow(pop))}
+  else{
+    (0.5 * length(pop$Genotype[str_detect(pop$Genotype, heterozygous_genotype)] & pop$Sex == sex_homozygous)/ nrow(pop)) + 
+      (length(pop$Genotype[str_detect(pop$Genotype, homozygous_genotype)] & pop$Sex == sex_homozygous)/ nrow(pop)) +
+      (length(pop$Genotype[str_detect(pop$Genotype, "I")] & pop$Sex != sex_homozygous)/ nrow(pop))}
+}
+
+```
+
+Death of a breeding female triggers replacement by a new breeding individual, assuming that there is >=1 non-breeding female in the population. If there are multiple non-breeding females, the new breeder is selected with probability 1 / number of non-breeding females.
+
+## Define the parameter space
+
+```{r}
+
+resolution <- 25
+
+parameters <-
+  expand_grid(
+    C = c(2, 10),
+    v = c(1, 10, 100),
+    prob_sibling_mating = seq(0, 1, length = resolution),
+    D = seq(0, -1.99, length = resolution)) %>% 
+  mutate(Starting_pop_size = 200,
+         baseline_mean_lifespan = 2,
+         N = 10,
+         number_mutants = 1,
+         time_end = 100,
+         parameter_space_ID = row_number())
+
+```
+
+## Speed testing
+
+The fuction below can be used to test computation speed
+
+```{r, eval=FALSE}
+bench::mark({
+
+  }, iterations = 100)
+```
 
 ## Build the main simulation function
 
-**Updating the function**
+The simulation progresses through time. Fates of individuals are pre-calculated and occur in continuous time. We monitor the population regularly (time increments of 0.1) and update the population by:
+
+1. Checking whose still alive
+
+2. Finding new breeding females if there's space and the females to fill it. All individuals in the population can mate but only those holding breeding sites can produce offspring.
+
+3. Checking if mating occurs (including inbreeding). 
+
+4. Adding new individuals to the population when there are new mated breeders. 
+
+5. Generating fates for all new individuals and updating the fates of existing individuals.
+
+The simulation ends when the inbreeding allele goes extinct, fixes or the time limit elapses.
+
+We run one simulation per row in the parameter space table.
 
 ```{r}
-# set parameters to build starting population
 
-Starting_pop_size <- 10
-
-Female_pop_size <- Starting_pop_size*0.5
-
-Male_pop_size <- Starting_pop_size*0.5
-
-Female_death_rate <- 0.2
-
-Male_death_rate <- 0.2
-```
-
-```{r, eval=FALSE}
-
-#IT NEARLY WORKS
-
-#Latest error: can't compute indices. A problem for tomorrow.
-
-# at 0.15 time it breaks...which is when two individuals are recruited at once.
-
-continuous_time_simulation(C = 2, v = 10, death_rate = 1, time_end = 0.15)
-
-continuous_time_simulation <- function(C, 
-                                       v,
-                                       death_rate,
-                                       time_end){
+continuous_time_simulation <- function(row,
+                                       parameters,
+                                       expression, # 0 = in males, 1 = in females
+                                       chromosome, # where does the inbreeding mutation occur
+                                       inheritance_scheme, # mutation occurs on A, X, Y, Z or C
+                                       allele_freq_finder, # depends on inheritance scheme
+                                       heterozygous_genotype, # if hemizygous NA, else specify
+                                       homozygous_genotype, # homozygote for inbreeding allele)
+                                       sex_homozygous){ # if hemizygous 0 or 1, else NA 
   
-  # we need this so that t is correctly matched to Mortality_time
+  print(paste("Doing row", row)) # this tells you which row in the parameter space is being modelled
   
-  tolerance <- 0.005
+  Starting_pop_size <- parameters$Starting_pop_size[row]
+  C <- parameters$C[row]
+  v <- parameters$v[row]
+  baseline_mean_lifespan <- parameters$baseline_mean_lifespan[row]
+  N <- parameters$N[row]
+  D <- parameters$D[row]
+  number_mutants <- parameters$number_mutants[row]
+  prob_sibling_mating <- parameters$prob_sibling_mating[row]
+  time_end <- parameters$time_end[row]
+  
+  # define the starting genotypes for each sex so the population table can be built
+  
+  Female_starting_genotype <- inheritance_scheme[.N]$Female_genotype
+  
+  Male_starting_genotype <- inheritance_scheme[.N]$Male_genotype
+  
+  # make sure random number generation is not replicated across simulation runs
+  
+  #set.seed(runif(1, 0, 1))
   
   # Initialize the timer t to 0
   t <- 0
   
-  # create the starting population
+  # Set the number of breeding sites
   
-  starting_population <- 
-    build_starting_pop(seed = 1, pop_size = Female_pop_size, 
-                       death_rate = death_rate, "Female") %>% 
-    bind_rows(build_starting_pop(seed = 2, pop_size = Male_pop_size, 
-                                 death_rate = death_rate, "Male")) %>% 
-    mutate(Individual_ID = 1:n(),
-           time = 0,
-           matings = 0) %>% 
-    select(Individual_ID, Sex, Genotype, alive, Enter_time, Lifespan, Mortality_time, matings, time)
+  breeding_sites <- 0.5*Starting_pop_size
   
-  # create sex specific tibbles that can be matched to the mating timestamps
+  # Initialize the Individual_ID  and Family_ID counters
+  
+  Individual_ID_counter <- Starting_pop_size
+  
+  Family_ID_counter <- Starting_pop_size/10 # the sim starts with 200 individuals from 200 different families...
+  
+  keep_going <- TRUE # if the inbreeding allele fixes or goes extinct, this will change to false and the while loop will quit early
+  
+  # the simulation tracks the population via two dataframes. The first holds info about the individuals in the population, while the second (the candidate list) holds info on encounters between males and females in the population
+  
+  # create the starting population - note that females are sex = 1 and males are sex = 0
+  
+  population <- 
+    build_starting_pop(pop_size = Starting_pop_size, 
+                       mean_lifespan = baseline_mean_lifespan)
+  
+  # seed population with the inbreeding allele using our custom mutate_sample() function
+  
+  #population <-
+  mutate_sample(population,
+                number_mutants = number_mutants)
+  
+  # create sex specific data tables that can be matched to the mating timestamps
   
   female_population <-
-    starting_population %>% 
-    filter(Sex == "Female") %>% 
-    mutate(Female_ID = Individual_ID) %>% 
-    rename(Female_mortality_time = Mortality_time,
-           Female_alive = alive,
-           Female_genotype = Genotype)
+    population[Sex > 0, 
+               .(Female_ID = Individual_ID, 
+                 Female_genotype = Genotype, 
+                 Female_mortality_time = Mortality_time,
+                 breeding,
+                 Female_family_ID = Family_ID)] 
+  
   
   male_population <-
-    starting_population %>% 
-    filter(Sex == "Male") %>% 
-    mutate(Male_ID = Individual_ID) %>% 
-    rename(Male_mortality_time = Mortality_time,
-           Male_alive = alive,
-           Male_genotype = Genotype)
-  
-  # Initialize the Individual_ID counter
-  
-  Individual_ID_counter <- Starting_pop_size + 1
+    population[Sex < 1, 
+               .(Male_ID = Individual_ID, 
+                 Male_genotype = Genotype, 
+                 Male_mortality_time = Mortality_time,
+                 Male_family_ID = Family_ID)] 
   
   # Create the initial candidate list of mating interactions
   
-  initial_females <- starting_population %>% filter(Sex == "Female") %>% pull(Individual_ID)
+  initial_females <- female_population[, Female_ID]
   
-  initial_males <- starting_population %>% filter(Sex == "Male") %>% pull(Individual_ID)
+  initial_males <- male_population[, Male_ID]
   
   candidate_list <- 
-    candidate_timestamp_finder(seed = 3,
-                               Female_candidate_IDs = initial_females,
-                               Male_candidate_IDs = initial_males,
-                               encounters = Female_pop_size*Male_pop_size,
-                               v = 10) %>% 
-    # join important genetic and life history info
-    left_join(female_population %>% 
-                select(Female_ID, Female_mortality_time, Female_alive, Female_genotype),
-              by = "Female_ID") %>% 
-    
-    left_join(male_population %>% 
-                select(Male_ID, Male_mortality_time, Male_alive, Male_genotype),
-              by = "Male_ID") %>% 
-    mutate(time = 0)
+    candidate_timestamp_finder(Female_ID = initial_females,
+                               Male_ID = initial_males,
+                               v = v,
+                               Female_pop_size = length(initial_females)
+    )[female_population, on = 'Female_ID' # join the important genetic and life history info
+    ][male_population, on = "Male_ID"]
   
-
-  # With the initial population and mating schedule ready to go, start the timer and let the simulation run.      In short, time progresses and events with predetermined time stamps occur. These events trigger new           actions which can lead to the production of new breeding individuals which have their own timeline of         predetermined events and interactions.
-
-  while (t <= time_end) {
+  # With the initial population and mating schedule ready to go, start the timer and let the simulation run. In short, time progresses and events with predetermined time stamps occur. These events trigger new actions which can lead to the production of new breeding individuals, which have their own timeline of predetermined events and interactions.
+  
+  while (t <= time_end & keep_going) {
     
-    # the simulation tracks the population via two dataframes. The first holds info about the individuals           in the population, while the second holds info on encounters between males and females in the                 population
+    # step 1. check whose still alive
     
-    starting_population <-
-      starting_population %>%
-      # update the time and check if anyone dies
-      mutate(time = t,
-             alive = if_else(Mortality_time - time <= tolerance, "NO", alive))
+    population <-
+      population[Mortality_time > t]
     
-    # with the extant population determined, the next step is to determine if reproduction occurs and by         whom.
+    # step 2. find new breeders if there's space and females to fill it
     
-    # determine whether any female-male encounters result in mating
+    # Get the current size of the breeding female population 
     
-    candidate_list <- candidate_list %>%
-      #update the time and find the extant pop
-      mutate(time = t,
-             Female_alive = if_else(Female_mortality_time <= time, "NO", Female_alive),
-             Male_alive = if_else(Male_mortality_time <= time, "NO", Male_alive)) %>%
-      # uncomment next line for testing - remove when happy
-      #mutate(mated = case_when(row_number() %in% c(1, 2, 11, 16) ~ "YES", .default = mated))
-      # determine whether mating occurs
-      mutate(mated = case_when(
-        # does the encounter happen
-        (Mate_encounter_time_stamp - time) < tolerance &
-          Female_alive == "YES" &
-          Male_alive == "YES" &
-          # are both individuals receptive
-          female_matings == 0 &
-          male_matings <= C ~ "YES",
-        .default = mated))
+    current_breeders <- sum(population$breeding > 0) #length(which(population$breeding > 0))
     
-    # update the mating tally for each individual
-     
-    candidate_list <- candidate_list %>%
-      group_by(Female_ID) %>% 
-      mutate(female_matings = sum(mated != "NO")) %>% 
-      ungroup() %>%
-      group_by(Male_ID) %>% 
-      mutate(male_matings = sum(mated != "NO")) %>% 
-      ungroup() 
+    # If there are available breeding sites, and females to fill them, recruit new breeders
     
-    # make sure two matings haven't taken place - this happens when a female is receptive and meets two males       at the same time. There is a rare occurrence but without this check and change it breaks the simulation
-    
-    if(nrow(candidate_list %>% filter(female_matings > 1)) > 0){
+    if(current_breeders < breeding_sites && sum(population$Sex > 0 & population$breeding < 1) > 0){
       
-      over_the_limit_female_matings <- 
-        candidate_list %>% 
-        filter(female_matings > 1 & mated == "YES") %>% 
-        group_by(Female_ID) %>% 
-        sample_n(1) %>% 
-        mutate(mated = "NO") %>% 
-        ungroup()
+      # choose whether site or female availability limits recruitment
       
-      # remove impossible two places at once matings
+      size_input <- min(breeding_sites - current_breeders, 
+                        sum(population$Sex > 0 & population$breeding < 1))
       
-      candidate_list <- rows_update(candidate_list, over_the_limit_matings, by = c("Female_ID", "Male_ID"))
+      # assign the new breeders
+      
+      population <- population[sample(which(breeding < 1 & Sex > 0),
+                                      size = size_input, 
+                                      replace = FALSE), # note that all females have equal prob of becoming a breeder atm
+                               breeding := 1]
+      
+      # slot the newly updated population info into the candidate list
+      
+      candidate_list <- candidate_list[population[Sex > 0, .(Female_ID = Individual_ID, breeding)], 
+                                       on = .(Female_ID),
+                                       breeding := i.breeding]
     }
     
-    if(nrow(candidate_list %>% filter(female_matings > 1)) > 0){
-      over_the_limit_male_matings <-
-        candidate_list %>% 
-        filter(male_matings > C & mated == "YES") %>% 
-        group_by(Male_ID) %>% 
-        sample_n(n() - C) %>% 
-        mutate(mated = "NO") %>% 
-        ungroup()
+    # step 3. mating
+    
+    # trim the candidate list by removing 1) removing all encounters for individuals that have died and 2) all encounters from the past, except those that led to mating but haven't yet led to reproduction (we need these later). t - 0.1 is used because time elapsed increases by 0.1 units every iteration.  
+    
+    candidate_list <- candidate_list[Female_mortality_time > t &
+                                       Male_mortality_time > t & 
+                                       (Mate_encounter_time_stamp > t - 0.1 | mated > 0 & reproduced < 1)]
+    
+    # now use the list to check whether there are any female-male encounters at this moment that result in mating
+    # to do this, first create a table holding all encounters that occur at the current time
+    
+    encounters <- candidate_list[Mate_encounter_time_stamp <= t]
+    
+    # if an encounter occurs involving an individual carrying the A_I allele, provide an opportunity for inbreeding. Heterozygotes inbreed with 0.5 probability i.e. additive genetic expression. The hurdle requirement for an inbreeding opportunity is that an individual must stay alive long enough to meet any member of the opposite sex. We then code the simulation such that this opposite sex individual is swapped out for a full-sibling that can be mated with. This simulates a common situation in nature, where due to population viscosity, relatives live in close geographic proximity and are thus more likely to be encountered. 
+    
+    inbreeders <- data.table(Female_ID=numeric(), Male_ID=numeric()) # keeps the model running if no inbreeding occurs at t
+    
+    # find males that will inbreed when they are the sex that expresses inbreeding tolerance
+    
+    if(expression < 1 & sum(str_detect(encounters$Male_genotype, "I") > 0)){
       
-      # remove impossible two places at once matings
+      inbreeding_male_IDs <- 
+        unique(copy(encounters)
+               [str_detect(Male_genotype, "A_IA_O"), inbreeding := rbinom(.N, 1, 0.5) # heterozygotes
+               ][str_detect(Male_genotype, "A_IA_I"), inbreeding := 1 # homozygotes
+               ][inbreeding > 0, .(Male_ID) # select those that inbreed
+               ])[, mate_with_full_sib := rbinom(.N, 1, prob_sibling_mating)] # manipulate r with prob_sibling_mating
       
-      candidate_list <- rows_update(candidate_list, over_the_limit_matings, by = c("Female_ID", "Male_ID"))
+      # find new mates for males, first those chosen to mate with a full sib, then those that mate at random in the pop
       
+      inbreeders <-
+        unique(
+          rbindlist(list(
+            candidate_list[inbreeding_male_IDs, on = "Male_ID"
+            ][mate_with_full_sib > 0 & 
+                Female_family_ID == Male_family_ID & # this line produces full-sib mating, if a receptive sib exists
+                female_matings < 1 & 
+                male_matings < C,
+              .SD[sample(.N, 1, replace = F)], by = "Male_ID"], # choose a sister to mate with 
+            
+            candidate_list[inbreeding_male_IDs, on = "Male_ID"
+            ][mate_with_full_sib < 1 &
+                female_matings < 1 & 
+                male_matings < C, 
+              .SD[sample(.N, 1, replace = F)], by = "Male_ID"] # choose random female from population to mate with
+          ))[, `:=`(mated = 1, Mate_encounter_time_stamp = t, inbred_mating = 1) # change mating status and move encounter time forward
+          ][, mate_with_full_sib := NULL],
+          by = "Female_ID" # make sure no female is chosen twice
+        )[, .(Female_ID, Male_ID, mated, Mate_encounter_time_stamp, inbred_mating)] 
+      
+      # update the candidate list by moving the chosen mating forward to the present time.
+      
+      candidate_list[inbreeders, `:=` (mated = i.mated, 
+                                       Mate_encounter_time_stamp = i.Mate_encounter_time_stamp,
+                                       inbred_mating = i.inbred_mating),
+                     on = .(Female_ID, Male_ID)]
     }
     
-     # re-update the mating tally for each individual
-    candidate_list <- candidate_list %>%
-      group_by(Female_ID) %>% 
-      mutate(female_matings = sum(mated != "NO")) %>% 
-      ungroup() %>%
-      group_by(Male_ID) %>% 
-      mutate(male_matings = sum(mated != "NO")) %>% 
-      ungroup()
+    # find females that will inbreed when they are the sex that expresses inbreeding tolerance
     
-    # add mating tally to starting_population
-    starting_population <-
-      rows_update(starting_population, 
-                  
-                  candidate_list %>% 
-                    select(1:2, female_matings, male_matings) %>%
-                    pivot_longer(cols = 1:2, values_to = "Individual_ID") %>%
-                    distinct(Individual_ID, .keep_all = T) %>% 
-                    mutate(matings = case_when(name == "Female_ID" ~ female_matings,
-                                               name == "Male_ID" ~ male_matings)) %>% 
-                    select(Individual_ID, matings),
-                  by = "Individual_ID")
+    if(expression > 0 & sum(str_detect(encounters$Female_genotype, "I") > 0)){
       
-    
-    # check how many extant females have mated
-    
-    mated_pairs <- length(which(candidate_list$mated == "YES" & candidate_list$Female_alive == "YES"))
-    
-    # Get the current population size 
-    
-    current_pop_size <- length(which(starting_population$alive == "YES"))
-    
-    # If the population is below carrying capacity and there are mated females ready to reproduce, start reproduction
-    
-    if (current_pop_size < Starting_pop_size & mated_pairs > 0) {
+      inbreeding_female_IDs <- 
+        unique(copy(encounters)
+               [str_detect(Female_genotype, "A_IA_O"), inbreeding := rbinom(.N, 1, 0.5) # heterozygotes
+               ][str_detect(Female_genotype, "A_IA_I"), inbreeding := 1 # homozygotes
+               ][inbreeding > 0, .(Female_ID)
+               ])[, mate_with_full_sib := rbinom(.N, 1, prob_sibling_mating)] # manipulate r with prob_sibling_mating
       
-      # select mating pairs to produce offspring, weighted by fitness. Each pair can produce one offspring
+      # find new mates for females, first those chosen to mate with a full sib, then those that mate at random in the pop
       
-      chosen_mating_pairs <- 
-        candidate_list %>% 
-        filter(mated == "YES" & Female_alive == "YES") %>% 
-        slice_sample(n = Starting_pop_size - current_pop_size, weight_by = fitness, replace = FALSE) %>%
-        # change mating status for chosen pairs from "YES" to reproduced
-        mutate(mated = "Reproduced")
+      inbreeders <-
+        unique(
+          rbindlist(list(
+            candidate_list[inbreeding_female_IDs, on = "Female_ID"
+            ][mate_with_full_sib > 0 & 
+                Female_family_ID == Male_family_ID & # this line produces full-sib mating
+                female_matings < 1 & 
+                male_matings < C,
+              .SD[sample(.N, 1)], by = "Female_ID"], # choose brother to mate with
+            
+            candidate_list[inbreeding_female_IDs, on = "Female_ID"
+            ][mate_with_full_sib < 1 &
+                female_matings < 1 & 
+                male_matings < C, 
+              .SD[sample(.N, 1)], by = "Female_ID"] # choose random male from population to mate with
+          ))[, `:=`(mated = 1, Mate_encounter_time_stamp = t, inbred_mating = 1) # change mating status and move encounter forward
+          ][, mate_with_full_sib := NULL],
+          by = "Male_ID" # make sure no male is chosen twice
+        )[, .(Female_ID, Male_ID, mated, Mate_encounter_time_stamp, inbred_mating)] 
       
-      # update the candidate list so that these pairs are not falsely chosen again (repro occurs once from     `   a mating)
+      # update the candidate list by moving the chosen mating forward to the present time. 
+      
+      candidate_list[inbreeders, `:=` (mated = i.mated, 
+                                       Mate_encounter_time_stamp = i.Mate_encounter_time_stamp,
+                                       inbred_mating = i.inbred_mating),
+                     on = .(Female_ID, Male_ID)]
+    }
+    
+    # conduct 'normal' matings
+    
+    receptive_encounters <-
+      encounters[female_matings < 1 & male_matings < C
+      ][, f_number := .N, keyby = Female_ID
+      ][, m_number := .N,  by = Male_ID
+      ][!inbreeders, on = .(Female_ID) # remove females involved in inbreeding at this time
+      ][!inbreeders, on = .(Male_ID)] # remove males involved in inbreeding at this time
+    
+    # if individuals encounter multiple individuals at once, make sure they just choose one to mate with. If two individuals choose the same individual of the opposite sex, one randomly succeeds and the other(s) miss out
+    
+    if(max(receptive_encounters$f_number) > 1 | max(receptive_encounters$m_number) > 1){
+      
+      likely_matings <- receptive_encounters[, 
+                                             .I[Mate_encounter_time_stamp == min(Mate_encounter_time_stamp)], 
+                                             by = Female_ID]$V1
+      
+      chosen_matings <- unique(receptive_encounters[likely_matings, 
+                                                    .(Male_ID, Female_ID)], 
+                               by = "Male_ID")[, mated := 1]
+      
+      # update the candidate list
+      
+      candidate_list <- candidate_list[chosen_matings, 
+                                       on = .(Male_ID = Male_ID, Female_ID = Female_ID), 
+                                       mated := i.mated]
+      
+    } else{
+      candidate_list <-
+        candidate_list[!inbreeders, on = .(Female_ID) # remove females involved in inbreeding at this time
+        ][!inbreeders, on = .(Male_ID)  # remove males involved in inbreeding at this time
+        ][Mate_encounter_time_stamp <= t &
+            female_matings < 1 &
+            male_matings < C, mated := 1]
+    }
+    
+    # update the mating tally in the population tibble
+    # the counted variable indicates that the successful mating has already been included in the female and males mating tally
+    # new matings combines the inbred matings and the 'normal matings' that occur at time t
+    
+    new_matings <- 
+      candidate_list[mated > 0 & counted < 1,][, `:=`(matings = 1)][, .(Female_ID, Male_ID, matings)]
+    
+    if(nrow(new_matings) > 0){
+      # melt reshapes the table from wide to long, like pivot_longer in the tidyverse
+      population <- population[melt(new_matings,
+                                    measure.vars = c("Female_ID", "Male_ID"),
+                                    value.name = "Individual_ID")[,.(Individual_ID, matings)], 
+                               `:=`(matings = matings + i.matings), on = "Individual_ID"]
+      
+      
+      # update the mating tally in the candidate list and check specific matings off as counted
+      
+      new_mated_females <- 
+        new_matings[, .(Female_ID, female_matings = matings)]
+      
+      new_mated_males <- 
+        new_matings[, .(Male_ID, male_matings = matings)]
       
       candidate_list <- 
-        rows_update(candidate_list, chosen_mating_pairs, by = c("Female_ID", "Male_ID"))
-      
-      # get pertinent info for offspring - genotype, birth time, lifespan, mortality time 
-      
-      new_recruits <-
-        # use the mating table to find the offspring genotype produced by chosen mated pair
-        make_mating_table("autosomal") %>% 
-        rename(zygote_type = type) %>%
-        # filter the table to just the zygotes possible from the chosen pairs
-        inner_join(chosen_mating_pairs, relationship = "many-to-many") %>% 
-        # for each pair select a zygote genotype and sex, following Mendelian inheritance
-        group_by(Female_ID, Male_ID) %>% 
-        slice_sample(n = 1, weight_by = zygote_freq) %>%
-        ungroup() %>% 
-        select(zygote_type) %>% 
-        separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
-        bind_cols(tibble(Individual_ID = Individual_ID_counter:(Individual_ID_counter + 
-                                                        (Starting_pop_size - current_pop_size) - 1),
-               time = t,
-               Enter_time = time,
-               Lifespan = rexp(n = Starting_pop_size - current_pop_size, rate = death_rate),
-               alive = "YES",
-               Mortality_time = Enter_time + Lifespan,
-               matings = 0))
-      
-      
-       #tibble(Individual_ID = Individual_ID_counter:(Individual_ID_counter + 
-        #                                                (Starting_pop_size - current_pop_size) - 1),
-         #      time = t,
-          #     Enter_time = time,
-           #    Lifespan = rexp(n = Starting_pop_size - current_pop_size, rate = 1),
-            #   alive = "YES",
-             #  Mortality_time = Enter_time + Lifespan)
-      
-      
-      
-      
-      
-      
-      
-      # add new rows to the starting_population
-      
-      starting_population <- bind_rows(starting_population, new_recruits)
-      
-      # add new individuals to the candidate list, 
-      
-      new_females <- new_recruits %>% filter(Sex == "Female") %>% 
-        rename(Female_ID = Individual_ID,
-               Female_mortality_time = Mortality_time,
-               Female_alive = alive,
-               Female_genotype = Genotype,
-               female_matings = matings) %>% 
-        select(-c(Sex, Enter_time, Lifespan))
-      
-      new_males <- new_recruits %>% filter(Sex == "Male") %>% 
-        rename(Male_ID = Individual_ID,
-               Male_mortality_time = Mortality_time,
-               Male_alive = alive,
-               Male_genotype = Genotype,
-               male_matings = matings) %>% 
-        select(-c(Sex, Enter_time, Lifespan))
-      
-      # find the number of each sex in the population, which we'll need to generate encounter times 
-      # for new offspring
-      
-    Female_pop_size <- length(starting_population %>% 
-                                filter(Sex == "Female" & alive == "YES") %>% 
-                                row_number())
-    
-    Male_pop_size <- length(starting_population %>% 
-                                filter(Sex == "Male" & alive == "YES") %>% 
-                                row_number())
-      
-      # find mating interactions for new females and join with other life history info
-      
-    if(nrow(new_females) > 0){
-      new_female_mating_encounter_times <-
-                expand_grid(Male_ID = starting_population %>% 
-                      filter(Sex == "Male" & alive == "YES") %>% pull(Individual_ID),
-                    Female_ID = new_females %>% pull(Female_ID)) %>% 
-        bind_cols(tibble(
-          Mate_encounter_time_stamp = rexp(n = nrow(new_females) * Male_pop_size, rate = v),
-          fitness = 1,
-          mated = "NO")) %>% 
-        left_join(starting_population %>% 
-                    filter(Sex == "Male") %>% 
-                    distinct(Individual_ID,  .keep_all = T) %>% 
-                    rename(Male_ID = Individual_ID,
-                           Male_mortality_time = Mortality_time,
-                           Male_alive = alive,
-                           Male_genotype = Genotype,
-                           male_matings = matings) %>% 
-                    # here is the problem - these need to be imported from the existing candidate list
-                    #mutate(male_matings = 0) %>% 
-                    select(-c(Sex, Lifespan, Enter_time, time)),
-                  by = "Male_ID") %>% 
-        left_join(new_females, by = "Female_ID") 
-      
-      # add them to the list
-      
-      candidate_list <-
-        candidate_list %>% 
-        bind_rows(new_female_mating_encounter_times)
+        candidate_list[new_mated_females, 
+                       female_matings := female_matings + i.female_matings, 
+                       on = "Female_ID"
+        ][new_mated_males, male_matings := male_matings + i.male_matings, 
+          on = "Male_ID"
+        ][new_matings, counted := 1, on = c("Female_ID", "Male_ID")] # this ticks the mating off as counted
     }
+    
+    # step 4: reproduction
+    
+    # check how many females can now produce offspring, either because they're previously mated and have secured a breeding site or because they already held a breeding site and have now mated
+    
+    new_mated_breeders <- sum(candidate_list$mated > 0 & 
+                                candidate_list$breeding > 0 & 
+                                candidate_list$reproduced < 1)
+    
+    if(new_mated_breeders > 0) {
+      # add offspring to the population. Each mated female that holds a breeding site produces N offspring
+      offspring <- 
+        candidate_list[mated > 0 & breeding > 0 & reproduced < 1, 
+        ][inheritance_scheme, 
+          on = .(Female_genotype = Female_genotype,
+                 Male_genotype = Male_genotype), 
+          nomatch = NULL, allow.cartesian  = TRUE
+        ][, .SD[sample(.N, 
+                       size = N, 
+                       prob = zygote_freq, 
+                       replace = T)],
+          by = .(Female_ID, 
+                 Male_ID)
+        ][, Family_ID := .GRP + Family_ID_counter,
+          by = .(Female_ID, 
+                 Male_ID)
+        ][, .(Genotype, 
+              Sex, 
+              inbred_mating,
+              Family_ID)
+        ][, `:=`(birth_time = t,
+                 Lifespan = ifelse(inbred_mating > 0, rexp(.N, rate = 1/(baseline_mean_lifespan + D)),
+                                   rexp(.N, rate = 1/baseline_mean_lifespan)),
+                 breeding = 0,
+                 matings = 0)
+        ][, Mortality_time := Lifespan + birth_time
+        ][, Individual_ID := .I + Individual_ID_counter
+        ][, c(-3)] # dangerous coding but this drops the inbred mating column that we don't need in the population table
       
-      # find mating interactions for new males
+      # bind the offspring table to the existing population table  
       
-    if(nrow(new_males > 0)){
-      new_male_mating_encounter_times <-
-        expand_grid(Male_ID = new_males %>% pull(Male_ID),
-                    Female_ID = starting_population %>% 
-                      filter(Sex == "Female" & alive == "YES") %>% pull(Individual_ID)) %>% 
-        bind_cols(tibble(
-          Mate_encounter_time_stamp = rexp(n = nrow(new_males) * Female_pop_size, rate = v),
-          fitness = 1,
-          mated = "NO")) %>%
-        left_join(starting_population %>% 
-                    filter(Sex == "Female") %>% 
-                    distinct(Individual_ID, .keep_all = T) %>% 
-                    rename(Female_ID = Individual_ID,
-                           Female_mortality_time = Mortality_time,
-                           Female_alive = alive,
-                           Female_genotype = Genotype,
-                           female_matings = matings) %>% 
-                    # here is the problem
-                    #mutate(Female_matings = 0) %>% 
-                    select(-c(Sex, Lifespan, Enter_time, time)),
-                  by = "Female_ID") %>% 
-        left_join(new_males, by = "Male_ID")
+      population <- rbindlist(list(population, offspring), use.names = TRUE)
+      
+      # update the reproduced column in the candidate list 
+      
+      candidate_list <- candidate_list[mated > 0 & breeding > 0 & reproduced < 1, reproduced := 1]
+      
+      # update the candidate list with new members of the population
+      
+      # setup dummy dts so we can bind everything at once, which saves time
+      
+      new_female_mating_encounter_times <- data.table(Female_ID=numeric(), Male_ID=numeric()) 
+      new_male_mating_encounter_times <- data.table(Female_ID=numeric(), Male_ID=numeric()) 
+      
+      # first get all relevant data from the population table
+      new_females <- population[Sex > 0 & birth_time == t, 
+                                .(Female_ID = Individual_ID,
+                                  Female_mortality_time = Mortality_time,
+                                  Female_genotype = Genotype,
+                                  Female_family_ID = Family_ID,
+                                  female_matings = matings,
+                                  breeding = breeding)]
+      # note that population only contains living individuals so we don't need to filter for that here
+      all_eligible_females <- population[Sex > 0 & matings < 1, 
+                                         .(Female_ID = Individual_ID,
+                                           Female_mortality_time = Mortality_time,
+                                           Female_genotype = Genotype,
+                                           Female_family_ID = Family_ID,
+                                           female_matings = matings,
+                                           breeding = breeding)]
+      
+      new_males <- population[Sex < 1 & birth_time == t, 
+                              .(Male_ID = Individual_ID,
+                                Male_mortality_time = Mortality_time,
+                                Male_genotype = Genotype,
+                                Male_family_ID = Family_ID,
+                                male_matings = matings)]
+      
+      all_eligible_males <- population[Sex < 1 & matings < C,
+                                       .(Male_ID = Individual_ID,
+                                         Male_mortality_time = Mortality_time,
+                                         Male_genotype = Genotype,
+                                         Male_family_ID = Family_ID,
+                                         male_matings = matings)]
+      
+      # find mating interactions for new females and join with life history info
+      
+      if(nrow(new_females) > 0){
         
-        # add them to the list
+        new_female_mating_encounter_times <-
+          CJ(Female_ID = new_females$Female_ID, 
+             Male_ID = all_eligible_males$Male_ID
+          )[, 
+            .(Female_ID,
+              Male_ID,
+              Mate_encounter_time_stamp = t + rexp(n = .N, rate = (v/nrow(all_eligible_females))),
+              mated = 0,
+              inbred_mating = 0,
+              reproduced = 0,
+              counted = 0)
+          ][new_females, on = "Female_ID"
+          ][all_eligible_males, on = "Male_ID"]
         
-        candidate_list <-
-          candidate_list %>% 
-          bind_rows(new_male_mating_encounter_times) %>%
-          # this is hacky but it stops new pairs getting added twice when there are new males and 
-          # females at the same time 
-          distinct(Male_ID, Female_ID, .keep_all = T)
+        # add new interactions to the list
+        
+        # candidate_list <-
+        #  rbindlist(list(candidate_list, new_female_mating_encounter_times), use.names = TRUE)
+        
       }
       
+      # find mating interactions for new males and join with life history info
+      if(nrow(new_males)  > 0){  
+        new_male_mating_encounter_times <-
+          CJ(Female_ID = all_eligible_females$Female_ID, 
+             Male_ID = new_males$Male_ID
+          )[, 
+            .(Female_ID,
+              Male_ID,
+              Mate_encounter_time_stamp = t + rexp(n = .N, rate = (v/nrow(all_eligible_females))),
+              mated = 0,
+              inbred_mating = 0,
+              reproduced = 0,
+              counted = 0)
+          ][all_eligible_females, on = "Female_ID"
+          ][new_males, on = "Male_ID"]
+      }
       
-    candidate_list <-
-      rows_update(candidate_list, chosen_mating_pairs, by = c("Female_ID", "Male_ID"))
-    
-      # Update the Individual_ID counter
-      Individual_ID_counter <- Individual_ID_counter + (Starting_pop_size - current_pop_size)
+      # add new individuals to the list
+      
+      candidate_list <-
+        unique(rbindlist(list(candidate_list, 
+                              new_female_mating_encounter_times,
+                              new_male_mating_encounter_times), use.names = TRUE), 
+               by = c("Female_ID", "Male_ID")
+               # update the reproduced column in the candidate list 
+        )[mated > 0 & breeding > 0 & reproduced < 1, reproduced := 1]
     }
     
-    # Increment 't' by a small time step (e.g. 0.01)
-    t <- t + 0.01
+    # Update the Individual_ID counter
+    Individual_ID_counter <- max(population$Individual_ID)
+    Family_ID_counter <- max(population$Family_ID)
+    
+    print(paste0("Reproduction from ", new_mated_breeders, " breeders, ", current_breeders,
+                 " breeders alive, time = ", round(t, 2)))
+    
+    
+    # Calculate the frequency of the i allele, quit early if i fixes or goes extinct
+    #prop_i <- calc_prop_inbreeding_allele(population, heterozygous_genotype, homozygous_genotype)
+    prop_i <- allele_freq_finder(population, 
+                                 homozygous_genotype = homozygous_genotype, 
+                                 heterozygous_genotype = heterozygous_genotype,
+                                 sex_homozygous = sex_homozygous) 
+    
+    # for testing change the invasion success criteria from fixation to an intermediate freq. Change back for final sim
+    #if(prop_i > 0.999 | prop_i < 0.0001) keep_going <- FALSE
+    if(prop_i > 0.4 | prop_i < 0.0001) keep_going <- FALSE
+    
+    
+    # Increment t by a small time step
+    t <- t + 0.1
   }
   
   # Print the simulation results
-  list(starting_population, candidate_list)
+  #list(population, candidate_list, prop_i)
+  parameters[row, ] %>% mutate(I_frequency = prop_i)
 }
 ```
 
-# Miscellaneous notes
+## Run the simulation
 
-**The costs of mating**
+```{r, eval=FALSE}
 
--   Inbreeding depression
+x <- 
+  continuous_time_simulation(row = 1,
+                             parameters = parameters,
+                             expression = 1,
+                             chromosome = "W",
+                             inheritance_scheme = offspring_genotypes_W,
+                             allele_freq_finder = calc_prop_hemizygous_inbreeding_allele,
+                             heterozygous_genotype = NA,
+                             homozygous_genotype = "Z_OW_I",
+                             sex_homozygous = NA)
 
--   Sperm limitation (or some other form of parental investment that reduces the chance of mating again) - C must vary and be focused on.
+map_dfr(1:50, continuous_time_simulation, parameters = parameters, inheritance_scheme = offspring_genotypes_autosome,
+                             heterozygous_genotype = "A_IA_O",
+                             homozygous_genotype = "A_IA_I")
 
-**The costs of not mating**
-
--   Matelessness. Currently, this is why increasing $C$ reduces the tolerance towards inbreeding depression. Females foregoing reproduction with a relative are more likely to find a receptive male later in the cycle when $C$ is large.
+x %>% glimpse()
+```
 
 # Session information
 
