@@ -110,6 +110,17 @@ $~$
 
 - Haplodiploids not from the a sense but the delta sense - follow-up project?
 
+## 26/03/24
+
+Something to think about is how we set genetics to affect the expression of inbreeding tolerance/preference. Things that matter include:
+
+1. do we consider inbreeding expression as the additive result of multiple loci on different chromosomes, or do we consider each case separately. **Probably not this**
+
+2. is inbreeding expression binary, a threshold trait or a quantitative, normally distributed trait. The latter would allow us to model evolution towards some maximum. The former cases are simpler to code (particularly the first case) but still allow us to answer a very similar question. **I have this as an additive case - being heterozygous leads to expression of inbreeding preference half of the time.**
+
+**What about paternal leakage in the mtDNA case?**
+
+Females don't get direct benefits from inbreeding as easily as males, because they need to mate AND secure a breeding site. Breeding earlier than otherwise expected doesn't help as much.
 
 
 
