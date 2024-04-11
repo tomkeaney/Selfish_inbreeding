@@ -3,8 +3,8 @@
 library(tidyverse) # for tidy style coding and plotting
 library(data.table) # for efficient handling of large dataframes
 #library(Rmpi) # for parallel computing on a hpc
-library(snow) # complements the Rmpi package for hpc computing
-cl <- makeCluster(64, type="SOCK")
+
+library(compiler)
 
 SLURM_cores <- Sys.getenv("SLURM_JOB_CPUS_PER_NODE")
 # in case we are not in a SLURM job context we can run
@@ -14,6 +14,11 @@ if (SLURM_cores == '') {
 } else {
     nbcores <- SLURM_cores
 }
+
+
+## now we will turn on the JIT to boost our calculation
+# outcomment for testing purposes
+enableJIT(1)
 
 # mendelian genetics function for reproduction
 
