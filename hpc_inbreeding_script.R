@@ -6,6 +6,15 @@ library(data.table) # for efficient handling of large dataframes
 library(snow) # complements the Rmpi package for hpc computing
 cl <- makeCluster(64, type="SOCK")
 
+SLURM_cores <- Sys.getenv("SLURM_JOB_CPUS_PER_NODE")
+# in case we are not in a SLURM job context we can run
+# this code on any other machine:
+if (SLURM_cores == '') {
+    nbcores <- dectedCores() - 1 ## to be amended
+} else {
+    nbcores <- SLURM_cores
+}
+
 # mendelian genetics function for reproduction
 
 make_mating_table <- function(gene_location){
