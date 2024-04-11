@@ -2,7 +2,9 @@
 
 library(tidyverse) # for tidy style coding and plotting
 library(data.table) # for efficient handling of large dataframes
-library(sys)
+library(foreach)
+library(doParallel)
+library(sys) # to infer the number of CPUS in a job context
 #library(Rmpi) # for parallel computing on a hpc
 
 library(compiler)
@@ -766,9 +768,13 @@ parameters_autosome <- parameters %>% filter(chromosome == "A")
 
 # here's the snow version of the function, note that the cl argument is a cluster object that I haven't specified yet
 
-results <- clusterApply(cl, 1:nrow(parameters_autosome), continuous_time_simulation,
-                        parameters = parameters_autosome, 
-                        offspring_genotypes_autosome)
+results <- mclapply(1:nrows(parameters_autosome),
+                    parameters = continuous_time_simulation,
+                    offspring_genotype_autosome)
+
+#results <- clusterApply(cl, 1:nrow(parameters_autosome), continuous_time_simulation,
+#                        parameters = parameters_autosome, 
+#                        offspring_genotypes_autosome)
 
 all_results <- do.call(rbind, results)
 
