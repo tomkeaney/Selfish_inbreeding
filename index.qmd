@@ -524,7 +524,7 @@ Sexual_conflict_plot <-
   #                              "No conflict", 0.5, "Strong conflict, male (+)")) +
   scale_fill_gradientn(colours = oranges, limits = c(0, 0.6), #na.value = "white",
                        breaks = c(0, 0.6),
-                       labels = c("Weak conflict", "Strong conflict")) +
+                       labels = c("Weaker conflict", "Stronger conflict")) +
   labs(fill = "Evolutionary conflict") +
   new_scale_fill() +
   geom_tile(data = plotting_data %>% filter(relationship != "Sexual conflict"),
