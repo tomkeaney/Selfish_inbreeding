@@ -129,13 +129,11 @@ tibble(`Prob. that opposite sex gametes carry focal locus` = c(1, 0.5, 0),
 Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture
 
 $$\delta \lt \frac{ra}{1 + ra}$$
-
 Ignoring frequency dependence for now, we can plot the new slopes produced by varying $r$ and $a$:
 
 ```{r}
 inbreeding_maximum_function_2 <- function(r, a){
   (r*a / (r*a + 1))}
-
 
 parameters_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
                           a = c(0, 0.5, 1))
@@ -564,6 +562,60 @@ Column A shows regions of inter-chromosomal conflict within females, where chrom
 The second column shows inter-chromosomal in males. Importantly, the direction of selection for inbreeding is reversed in comparison to the female case in the zones of conflict. In males, chromosome classes with high probabilities of inbreeding loci being found in female gametes now have low fitness in the conflict space.
 
 Panels in column C show where loci are expected to be under intra-chromosomal sexual conflict over inbreeding preference. In regions of sexual conflict, inbreeding preference is always favoured in males, but has negative fitness consequences if expressed by females (assuming that males invest less into mating than females). Note that intra-chromosomal conflict encompasses both the intra- and inter-locus forms of sexual conflict. 
+
+## Make Figure 2
+
+We can also plot the cost to female direct reproductive output, 
+
+```{r}
+
+fitness_loss_data <-
+  tibble(chromosome = c("Autosomal", "X", "Y", "W", "Z", "Cytoplasmic"),
+       a_female = c(1, 0.5, NA, 0, 1, 0),
+       a_male = c(1, 1, 0, NA, 0.5, 1)) %>% 
+  mutate("delta[female]~when~r==0.5" = 0.5*a_female / (1 + 0.5*a_female),
+         "delta[male]~when~r==0.5" = 1 / (1 + 0.5*a_male),
+         "delta[male]~when~r==0.5" = case_when(chromosome == "Cytoplasmic" ~ 0,
+                                               .default = `delta[male]~when~r==0.5`)) %>%
+  pivot_longer(cols = 4:5, names_to = "Sex", values_to = "Inbreeding tolerance") %>% 
+  filter(!is.na(`Inbreeding tolerance`)) 
+
+fitness_loss_f_delta <-
+  fitness_loss_data %>% 
+  filter(Sex == "delta[female]~when~r==0.5") %>% 
+  mutate(chromosome = fct_relevel(chromosome, c("Autosomal", "X", "Z", "W", "Cytoplasmic"))) %>% 
+  ggplot(aes(x = chromosome, y = 1 - `Inbreeding tolerance`)) +
+  geom_col(fill = "#d0e2af", alpha = 0.75) +
+  facet_wrap(~Sex, labeller = label_parsed) +
+  scale_y_continuous(expand = c(0.0, 0.01), limits = c(0, 1)) + 
+  labs(x = "Genomic location",
+       y = "Female organismal-level direct fitness") +
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "black", fill = "#d0e2af"),
+        strip.text = element_text(size = 12),
+        axis.title = element_text(size = 12))
+
+fitness_loss_m_delta <-
+  fitness_loss_data %>% 
+  filter(Sex == "delta[male]~when~r==0.5") %>% 
+  mutate(chromosome = fct_relevel(chromosome, c("Autosomal", "X", "Y", "Z", "Cytoplasmic"))) %>% 
+  ggplot(aes(x = chromosome, y = 1 - `Inbreeding tolerance`)) +
+  geom_col(fill = "#d0e2af", alpha = 0.75) +
+    facet_wrap(~Sex, labeller = label_parsed) +
+  scale_y_continuous(expand = c(0.0, 0.01), limits = c(0, 1)) + 
+  labs(x = "Genomic location",
+       y = "Female organismal-level direct fitness") +
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "black", fill = "#d0e2af"),
+        strip.text = element_text(size = 12),
+        axis.title = element_text(size = 12))
+
+fitness_loss_f_delta + fitness_loss_m_delta +
+  plot_layout(axis_titles = "collect")
+
+```
+**Figure 2**. female reproductive output at the threshold where the indirect fitness gained by mating with a full-brother ($r = 0.5$) equals the loss in fitness due to inbreeding depression i.e. where chromosome-specific selection should no longer favour inbreeding. Reproductive output is expressed relative to females that exclusively outbreed.    
+
 
 # The simulation
 
