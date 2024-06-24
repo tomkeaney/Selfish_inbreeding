@@ -219,7 +219,7 @@ Note that when $c = 0$, this is equivalent to the $\delta$ threshold found in th
 
 Plot the relationship between $r$ and $\delta$ for several values of $c$ and $a$
 
-```{r}
+```{r, fig.height=8}
 Parker_cost_data <- 
   expand_grid(r = seq(from = 0, to = 1, by = 0.01),
               a = c(0, 0.5, 1),
@@ -265,7 +265,7 @@ analytical_results <-
          male_inbreeding_fitness_cytoplasmic = 0 + r*1*(1-D) - c,
          female_outbreeding_fitness = 1,
          male_outbreeding_fitness = r*a,
-         female_fitness_contrast = female_inbreeding_fitness - female_outbreeding_fitness, # this is close to a selection differential
+         female_fitness_contrast = female_inbreeding_fitness - female_outbreeding_fitness, # this is close to a selection coefficient
          female_cytoplasmic_fitness_contrast = female_inbreeding_fitness_cytoplasmic - female_outbreeding_fitness,
          male_fitness_contrast = male_inbreeding_fitness - male_outbreeding_fitness,
          male_cytoplasmic_fitness_contrast = male_inbreeding_fitness_cytoplasmic)
@@ -945,7 +945,7 @@ make_mating_table(gene_location = "autosomal") %>%
 ## XY
 
 ```{r}
-make_mating_table(gene_location = "X") %>% 
+make_mating_table(gene_location = "XY") %>% 
   select(locus_type, everything()) %>% 
   rename(zygote_type = type) %>% 
   kable() %>% 
@@ -956,7 +956,7 @@ make_mating_table(gene_location = "X") %>%
 ## ZW
 
 ```{r}
-make_mating_table(gene_location = "Y") %>% 
+make_mating_table(gene_location = "ZW") %>% 
   select(locus_type, everything()) %>% 
   rename(zygote_type = type) %>% 
   kable() %>% 
@@ -1671,7 +1671,7 @@ temp <- pnw_palette("Shuksan2",100)
 
 ## Autosomes
 
-```{r}
+```{r, fig.height=6}
 A_allele_tracking <-
   sim_results %>%
   filter(chromosome == "A") %>% 
@@ -1722,12 +1722,14 @@ A_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-A_pop_tracking / A_allele_tracking
+A_pop_tracking
+
+A_allele_tracking
 ```
 
 ## X
 
-```{r}
+```{r, fig.height=6}
 X_allele_tracking <-
   sim_results %>%
   filter(chromosome == "X") %>% 
@@ -1776,12 +1778,14 @@ X_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-X_pop_tracking / X_allele_tracking
+X_pop_tracking
+
+X_allele_tracking
 ```
 
 ## Z
 
-```{r}
+```{r, fig.height=6}
 Z_allele_tracking <-
   sim_results %>%
   filter(chromosome == "Z") %>% 
@@ -1832,12 +1836,14 @@ Z_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-Z_pop_tracking / Z_allele_tracking
+Z_pop_tracking 
+
+Z_allele_tracking
 ```
 
 ## Y
 
-```{r}
+```{r, fig.height=6}
 Y_allele_tracking <-
   sim_results %>%
   filter(chromosome == "Y") %>% 
@@ -1886,12 +1892,14 @@ Y_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-Y_pop_tracking / Y_allele_tracking
+Y_pop_tracking
+
+Y_allele_tracking
 ```
 
 ## W
 
-```{r}
+```{r, fig.height=6}
 W_allele_tracking <-
   sim_results %>%
   filter(chromosome == "W") %>% 
@@ -1940,12 +1948,14 @@ W_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-W_pop_tracking / W_allele_tracking
+W_pop_tracking
+
+W_allele_tracking
 ```
 
 ## Cytoplasmic
 
-```{r}
+```{r, fig.height=6}
 C_allele_tracking <-
   sim_results %>%
   filter(chromosome == "C") %>% 
@@ -1994,7 +2004,9 @@ C_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-C_pop_tracking / C_allele_tracking
+C_pop_tracking
+
+C_allele_tracking
 
 ```
 
@@ -2009,21 +2021,31 @@ C_pop_tracking / C_allele_tracking
 
 ```{r}
 
-A_heatmap <-
+data <-
   sim_results %>%
   filter(chromosome == "A") %>%  
   group_by(parameter_space_ID) %>% 
   slice_tail() %>% 
+  ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(population_size < 100 ~ "Extinction",
+         Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
-                                   .default = "Females")) %>%
+                                   .default = "Females"),
+         v_cat = case_when(v < 0.5 ~ "Low",
+                           .default = "High"))
+
+A_heatmap <-
+  data %>%
+  #filter(dominance == 1) %>% 
   ggplot(aes(x = D_prop, y = refractory_period)) +
   geom_blank() +
-  geom_tile(aes(fill = Fate), alpha = 1) + 
-  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  geom_tile(aes(fill = Fate), alpha = 0.7) + 
+  geom_vline(data = data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1/(1 + 0.5*1)), linetype = 2, colour = "white", linewidth = .8) +
+  geom_vline(data = data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5*1)/(1 + 0.5*1)), linetype = 2, colour = "white", linewidth = .8) +
   scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], 
                                pnw_palette("Shuksan2", n = 5)[4], 
                                pnw_palette("Shuksan2", n = 5)[5])) +
@@ -2031,9 +2053,9 @@ A_heatmap <-
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "Autosomal inbreeding alleles") +
-  facet_wrap(v~sex_expressed, nrow = 2,
-             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+             labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
@@ -2050,29 +2072,41 @@ A_heatmap
 
 ```{r}
 
-X_heatmap <-
+data <-
   sim_results %>%
   filter(chromosome == "X") %>%  
   group_by(parameter_space_ID) %>% 
   slice_tail() %>% 
+  ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(population_size < 100 ~ "Extinction",
+         Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
-                                   .default = "Females")) %>%
+                                   .default = "Females"),
+         v_cat = case_when(v < 0.5 ~ "Low",
+                           .default = "High"))
+
+X_heatmap <-
+  data %>%
+  #filter(dominance == 1) %>% 
   ggplot(aes(x = D_prop, y = refractory_period)) +
   geom_blank() +
-  geom_tile(aes(fill = Fate), alpha = 1) + 
-  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
-  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  geom_tile(aes(fill = Fate), alpha = 0.7) + 
+  geom_vline(data = data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1/(1 + 0.5*1)), linetype = 2, colour = "white", linewidth = .8) +
+  geom_vline(data = data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5*0.5)/(1 + 0.5*0.5)), linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], 
+                               pnw_palette("Shuksan2", n = 5)[4], 
+                               pnw_palette("Shuksan2", n = 5)[5])) +
   labs(x = ~delta~'(inbreeding depression)',
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "X-linked inbreeding alleles") +
-  facet_wrap(v~sex_expressed, nrow = 2,
-             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+             labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
@@ -2088,30 +2122,41 @@ X_heatmap
 ## Z
 
 ```{r}
-
-Z_heatmap <-
+data <-
   sim_results %>%
   filter(chromosome == "Z") %>%  
   group_by(parameter_space_ID) %>% 
   slice_tail() %>% 
+  ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(population_size < 100 ~ "Extinction",
+         Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
-                                   .default = "Females")) %>%
+                                   .default = "Females"),
+         v_cat = case_when(v < 0.5 ~ "Low",
+                           .default = "High"))
+
+Z_heatmap <-
+  data %>%
+  #filter(dominance == 1) %>% 
   ggplot(aes(x = D_prop, y = refractory_period)) +
   geom_blank() +
-  geom_tile(aes(fill = Fate), alpha = 1) + 
-  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
-  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  geom_tile(aes(fill = Fate), alpha = 0.7) + 
+  geom_vline(data = data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1/(1 + (0.5*0.5))), linetype = 2, colour = "white", linewidth = .8) +
+  geom_vline(data = data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5*1)/(1 + (0.5*1))), linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], 
+                               pnw_palette("Shuksan2", n = 5)[4], 
+                               pnw_palette("Shuksan2", n = 5)[5])) +
   labs(x = ~delta~'(inbreeding depression)',
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "Z-linked inbreeding alleles") +
-  facet_wrap(v~sex_expressed, nrow = 2,
-             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+             labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
@@ -2127,30 +2172,39 @@ Z_heatmap
 ## Y
 
 ```{r}
-
-Y_heatmap <-
+data <-
   sim_results %>%
   filter(chromosome == "Y") %>%  
   group_by(parameter_space_ID) %>% 
   slice_tail() %>% 
+  ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(population_size < 100 ~ "Extinction",
+         Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
-                                   .default = "Females")) %>%
+                                   .default = "Females"),
+         v_cat = case_when(v < 0.5 ~ "Low",
+                           .default = "High"))
+
+Y_heatmap <-
+  data %>%
+  #filter(dominance == 1) %>% 
   ggplot(aes(x = D_prop, y = refractory_period)) +
   geom_blank() +
   geom_tile(aes(fill = Fate), alpha = 1) + 
-  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
-  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  geom_vline(data = data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1), linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], 
+                               pnw_palette("Shuksan2", n = 5)[4], 
+                               pnw_palette("Shuksan2", n = 5)[5])) +
   labs(x = ~delta~'(inbreeding depression)',
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "Y-linked inbreeding alleles") +
-  facet_wrap(v~sex_expressed, nrow = 2,
-             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+             labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
@@ -2166,30 +2220,38 @@ Y_heatmap
 ## W
 
 ```{r}
-
-W_heatmap <-
+data <-
   sim_results %>%
   filter(chromosome == "W") %>%  
   group_by(parameter_space_ID) %>% 
   slice_tail() %>% 
+  ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(population_size < 100 ~ "Extinction",
+         Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
-                                   .default = "Females")) %>%
+                                   .default = "Females"),
+         v_cat = case_when(v < 0.5 ~ "Low",
+                           .default = "High"))
+
+W_heatmap <-
+  data %>%
+  #filter(dominance == 1) %>% 
   ggplot(aes(x = D_prop, y = refractory_period)) +
   geom_blank() +
   geom_tile(aes(fill = Fate), alpha = 1) + 
-  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
-  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  geom_vline(aes(xintercept = 0), linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], 
+                               pnw_palette("Shuksan2", n = 5)[4], 
+                               pnw_palette("Shuksan2", n = 5)[5])) +
   labs(x = ~delta~'(inbreeding depression)',
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "W-linked inbreeding alleles") +
-  facet_wrap(v~sex_expressed, nrow = 2,
-             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+             labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
@@ -2205,30 +2267,35 @@ W_heatmap
 ## Cytoplasmic
 
 ```{r}
-
-C_heatmap <-
+data <- 
   sim_results %>%
   filter(chromosome == "C") %>%  
   group_by(parameter_space_ID) %>% 
   slice_tail() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(population_size < 100 ~ "Extinction",
+         Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
-                                   .default = "Females")) %>%
+                                   .default = "Females"),
+         v_cat = case_when(v < 0.5 ~ "Low",
+                           .default = "High"))
+
+
+C_heatmap <-
+  data %>%
   ggplot(aes(x = D_prop, y = refractory_period)) +
   geom_blank() +
   geom_tile(aes(fill = Fate), alpha = 1) + 
-  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  geom_vline(aes(xintercept = 0), linetype = 2, colour = "white", linewidth = .8) +
   scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
   labs(x = ~delta~'(inbreeding depression)',
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "Cytoplasmic inbreeding alleles") +
-  facet_wrap(v~sex_expressed, nrow = 2,
-             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  facet_wrap(sex_expressed ~ v_cat, nrow = 2,
+             labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
