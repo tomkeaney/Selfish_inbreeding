@@ -19,21 +19,35 @@ format:
 # Load packages
 
 ```{r}
-library(tidyverse) # for tidy style coding and plotting
+
+# for tidy style coding and plotting
+
+library(tidyverse) 
+library(vroom) # to read lots of csv files at once
+
+# more table options
+
 library(pander) # for tables
 library(kableExtra) # for scrolling tables
+library(data.table) # for efficient handling of large dataframes
+
+# making ggplot more powerful
+
 library(MetBrewer) # for colour palettes based upon artwork housed at the MET
 library(MoMAColors) # for colour palettes based upon artwork housed at MoMA
 library(wesanderson) # for colour palettes based on wes anderson movies
+library(PNWColors) # for colour palettes 
 library(tidybayes) # for plotting distributions
 library(stickylabeller) # labelling facets with strings in ggplot
 library(geomtextpath) # for curved plot annotations
 library(ggtext) # for markdown syntax in plot labels
 library(patchwork) # for patching plots together
 library(ggnewscale) # to reset scales in plots, allowing multiple fill arguments in ggplot
-library(data.table) # for efficient handling of large dataframes
-library(dtplyr) # for tidyverse functions that can be used on data tables
-library(profvis) # for computation speed checks
+
+# for computation speed checks
+
+library(profvis) # breakdown of complex functions
+library(bench) # individual functions
 ```
 
 # The model
@@ -71,11 +85,11 @@ r <- parameters %>% distinct(r)
 
 inbreeding_equilibria <- 
   map_dfr(r, inbreeding_maximum_function) %>% 
-  rename(inbreeding_depression = r) %>% 
+  rename(depression_threshold = r) %>% 
   bind_cols(r)
 
 inbreeding_equilibria %>% 
-  ggplot(aes(x = r, y = inbreeding_depression)) +
+  ggplot(aes(x = r, y = depression_threshold)) +
   geom_line(linewidth = 0.8) + 
   coord_cartesian(ylim = c(0, 1)) +
   labs(x = '_r_, the relatedness coefficient',
@@ -142,7 +156,7 @@ inbreeding_equilibria_2 <-
   map2_dfr(parameters_2 %>% select(r), 
            parameters_2 %>% select(a), 
            inbreeding_maximum_function_2) %>% 
-  rename(inbreeding_depression = r) %>% 
+  rename(depression_threshold = r) %>% 
   bind_cols(parameters_2)
 
 inbreeding_equilibria_2 %>% 
@@ -150,7 +164,7 @@ inbreeding_equilibria_2 %>%
                        a == 0.5 ~ "a = 0.5",
                        a == 1 ~ "a = 1")) %>% 
   mutate(a = as.factor(a)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = a, label = a)) +
+  ggplot(aes(x = r, y = depression_threshold, linetype = a, label = a)) +
   geom_textline(linewidth = 0.8, size = 5) + 
  # scale_colour_manual(values = c("0" = met.brewer("Kandinsky", 4)[1], "0.5" =  met.brewer("Kandinsky", 4)[2], "1" = met.brewer("Kandinsky", 4)[3])) +
   coord_cartesian(ylim = c(0, 1)) +
@@ -243,7 +257,7 @@ parameters <-
     c = c(0, 0.25, 0.5, 0.75, 1),
     D = seq(0, 1, length = resolution)) # D represents inbreeding depression)
 
-results <-
+analytical_results <-
   parameters %>% 
   mutate(female_inbreeding_fitness = (1-D) + (r*a*(1-D)) - (r*a*c),
          female_inbreeding_fitness_cytoplasmic = (1-D) + 0 + 0,
@@ -281,7 +295,7 @@ gradient_max <- oranges[5]
 my_gradient <- colorRampPalette(c(gradient_base, gradient_max))(50)
   
 Female_plot <-
-  results %>%
+  analytical_results %>%
   filter(c == 0 | c == 0.5) %>% 
   ggplot(aes(x = r, y = D)) +
   geom_blank() +
@@ -307,7 +321,7 @@ Female_plot <-
 
 
 Male_plot <-
-  results %>%
+  analytical_results %>%
   filter(c == 0 | c == 0.5) %>% 
   ggplot(aes(x = r, y = D)) +
   geom_blank() +
@@ -342,7 +356,7 @@ To quantify conflict in its various forms we use a version of the _I_ index pres
 
 ```{r}
 Intragenomic_conflict_females <-
-  results %>%
+  analytical_results %>%
   select(1:4, female_fitness_contrast) %>%
   pivot_wider(names_from = a, values_from = female_fitness_contrast) %>% 
   #mutate(`Autosome - X` = `1` - `0.5`,
@@ -374,7 +388,7 @@ Intragenomic_conflict_females <-
   filter(c == 0)  # remove if we want more c values
 
 Intragenomic_conflict_males <-
-  results %>%
+  analytical_results %>%
   select(1:4, male_fitness_contrast) %>%
   pivot_wider(names_from = a, values_from = male_fitness_contrast) %>% 
   #mutate(`Autosome - X` = 0,
@@ -451,7 +465,7 @@ Make column 3
 
 ```{r}
 autosomal_data <-
-  results %>%
+  analytical_results %>%
   filter(a == 1, c != 1, c != 0.25) %>% 
   #mutate(Evolutionary_conflict = male_fitness_contrast - female_fitness_contrast) %>%
   mutate(Evolutionary_conflict = female_fitness_contrast * male_fitness_contrast / 
@@ -466,12 +480,12 @@ autosomal_data <-
          Location = "Autosome") 
 
 X_data <- 
-  results %>% 
+  analytical_results %>% 
   filter(a == 0.5, c != 1, c != 0.25) %>%  
   select(1:4, contains("female")) %>% 
   rename(a_female = a) %>% # this step makes the join work as intended
   left_join(
-    results %>% 
+    analytical_results %>% 
       filter(a == 1, c != 1, c != 0.25) %>% 
       select(1:4, starts_with("male")) %>% 
       rename(a_male = a) # this step makes the join work as intended
@@ -489,12 +503,12 @@ X_data <-
          Location = "X")
 
 Z_data <-
-  results %>% 
+  analytical_results %>% 
   filter(a == 1, c != 1, c != 0.25) %>%  
   select(1:4, contains("female")) %>% 
   rename(a_female = a) %>% 
   left_join(
-    results %>% 
+    analytical_results %>% 
       filter(a == 0.5, c != 1, c != 0.25) %>% 
       select(1:4, starts_with("male")) %>% 
       rename(a_male = a)
@@ -570,9 +584,9 @@ We can also plot the cost to female direct reproductive output,
 ```{r}
 
 fitness_loss_data <-
-  tibble(chromosome = c("Autosomal", "X", "Y", "W", "Z", "Cytoplasmic"),
-       a_female = c(1, 0.5, NA, 0, 1, 0),
-       a_male = c(1, 1, 0, NA, 0.5, 1)) %>% 
+  tibble(chromosome = c("Autosomal", "X", "Z", "Y", "W", "Cytoplasmic"),
+       a_female = c(1, 0.5, 1, NA, 0, 0),
+       a_male = c(1, 1, 0.5, 0, NA, 1)) %>% 
   mutate("delta[female]~when~r==0.5" = 0.5*a_female / (1 + 0.5*a_female),
          "delta[male]~when~r==0.5" = 1 / (1 + 0.5*a_male),
          "delta[male]~when~r==0.5" = case_when(chromosome == "Cytoplasmic" ~ 0,
@@ -587,7 +601,7 @@ fitness_loss_f_delta <-
   ggplot(aes(x = chromosome, y = 1 - `Inbreeding tolerance`)) +
   geom_col(fill = "#d0e2af", alpha = 0.75) +
   facet_wrap(~Sex, labeller = label_parsed) +
-  scale_y_continuous(expand = c(0.0, 0.01), limits = c(0, 1)) + 
+  scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 1.01), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
   labs(x = "Genomic location",
        y = "Female organismal-level direct fitness") +
   theme_bw() +
@@ -598,11 +612,11 @@ fitness_loss_f_delta <-
 fitness_loss_m_delta <-
   fitness_loss_data %>% 
   filter(Sex == "delta[male]~when~r==0.5") %>% 
-  mutate(chromosome = fct_relevel(chromosome, c("Autosomal", "X", "Y", "Z", "Cytoplasmic"))) %>% 
+  mutate(chromosome = fct_relevel(chromosome, c("Autosomal", "X", "Z", "Y", "Cytoplasmic"))) %>% 
   ggplot(aes(x = chromosome, y = 1 - `Inbreeding tolerance`)) +
   geom_col(fill = "#d0e2af", alpha = 0.75) +
     facet_wrap(~Sex, labeller = label_parsed) +
-  scale_y_continuous(expand = c(0.0, 0.01), limits = c(0, 1)) + 
+  scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 1.01), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
   labs(x = "Genomic location",
        y = "Female organismal-level direct fitness") +
   theme_bw() +
@@ -614,14 +628,14 @@ fitness_loss_f_delta + fitness_loss_m_delta +
   plot_layout(axis_titles = "collect")
 
 ```
-**Figure 2**. female reproductive output at the threshold where the indirect fitness gained by mating with a full-brother ($r = 0.5$) equals the loss in fitness due to inbreeding depression i.e. where chromosome-specific selection should no longer favour inbreeding. Reproductive output is expressed relative to females that exclusively outbreed.    
+**Figure 2**. direct female reproductive output at the threshold where chromosome-specific selection should no longer favour inbreeding. Reproductive output is expressed relative to females that exclusively outcross.    
 
 
 # The simulation
 
 Parker's $c$ value offers a simple, intuitive way to model the cost of mating for males relative to females. However, other methods better capture the dynamics of real populations, where both sexes also run the risk of going unmated. To incorporate both costs of mating and matelessness, we simulate the invasion of an allele that encodes a preference for inbreeding, for loci on various chromosomes that are expressed in either females or males.
 
-The simulation progresses through time by jumping from event to event. Events are calculated via a gillespie-like algorithm, which involves both memory-less processes and others that are maintained through time. Events can trigger state changes for the individuals in the population, leading to death, mating, inheritance of a breeding site or offspring production. The simulation ends when the inbreeding allele goes extinct, fixes or the time limit elapses.
+The simulation progresses through time by jumping from event to event. Events are calculated via a gillespie-like algorithm, which involves both memory-less processes and others that are maintained through time. Events can trigger state changes for the individuals in the population, leading to death, mating, inheritance of a breeding site or offspring production. The simulation ends when the inbreeding allele is purged from the population, it reaches a high frequency in the population, the population goes extinct, or the time limit elapses.
 
 Following Ekrem and Kokko (2023), we find the lifespans of `N` diploid individuals in a sexually reproducing population to initialise the simulation. Mortality events are drawn from an exponential distribution with rate $\lambda = 1/\mu$, where $\mu$ is the mean time till death. The probability of mortality is therefore constant across life for each sex. 
 
@@ -635,39 +649,51 @@ Lets have a look at the mean lifespan drawn from the exponential distribution pa
   pander()
 ```
 
-We use these values to inform our parameterisation of inbreeding depression ($\delta$). Individuals that don't inbreed produce offspring with a mean lifespan of 2 time units ($\lambda = 0.5$). For inbred offspring, we model inbreeding depression by increasing the risk of mortality ($\lambda > 0.5$), lowering the mean lifespan of inbred individuals relative to their outbred counterparts.
+We use these values to inform our parameterisation of inbreeding depression ($\delta$). Individuals that don't inbreed produce offspring with a mean lifespan of 1 time unit ($\lambda = 1$). For inbred offspring, we model inbreeding depression by increasing the risk of mortality ($\lambda > 1$), lowering the mean lifespan of inbred individuals relative to their outbred counterparts.
 
-Each individual possesses an inbreeding locus with two possible alleles. The `A_O` allele encodes inbreeding indifference, whereas the `A_I` allele encodes inbreeding preference. The `number_mutants` argument allows us to set the number of mutations that the population is originally seeded with.
+Each individual possesses an inbreeding locus with two possible alleles. The `A_O` allele encodes inbreeding avoidance, whereas the `A_I` allele encodes inbreeding preference. The `number_mutants` argument allows us to set the number of mutations that the population is originally seeded with.
 
-Female-male encounters are found using the mass action law, with male search efficiency $v$. To get an idea of how $v$ influences mating encounters we plot the population wide female-male encounter timestamps. The dashed line shows the mean lifespan of outbred individuals in our simulations. Note that these are just encounters; whether they lead to mating depends upon past mating experiences of both females and males.
+Female-male encounters are found using the mass action law (also called fertilisation kinetics in this biological context), with male search efficiency $v$. To get an idea of how $v$ influences mating encounters, we plot the population wide male-female encounter timestamps. The dashed line shows the mean lifespan of outbred individuals in our simulations. Note that these are just encounters; whether they lead to mating depends upon past mating experiences of both females and males.
 
 ```{r}
 
 data <-
-  expand_grid(v = c(0.5, 5, 50),
-         pop_size = 200) %>% 
-  slice(rep(1:n(), each = 200)) %>% 
-  mutate(encounter = rexp(600, rate = v))
+  expand_grid(v = c(0.05, 0.5, 2, 5),
+              lifespan = c(0.01, 0.1, 0.5, 1),
+         pop_size = rep(100, 10000)) %>% 
+  mutate(encounter = rexp(160000, rate = v)) %>% 
+  group_by(v, lifespan) %>% 
+  summarise(n_females = n(),
+              lifetime_encounters = sum(encounter < lifespan),
+              prop_females_encountered = lifetime_encounters / n_females) %>% 
+  ungroup() %>% 
+   mutate(v = as.factor(v),
+         lifespan = as.factor(lifespan))
 
-data %>% 
-  ggplot(aes(x = encounter)) +
-  geom_histogram(binwidth = 1) +
-  coord_cartesian(xlim = c(0, 5)) +
-  scale_x_continuous(expand = c(0, 0)) + 
-  scale_y_continuous(expand = c(0, 0)) +
-  geom_vline(xintercept = 1, linetype = 2) +
-  facet_wrap(pop_size ~ v, nrow = 1, strip.position = c("top"),
-             labeller = label_glue('N_F = {`pop_size`}, v = {`v`}')) +
-  labs(x = "Encounter time") +
+data  %>% 
+  ggplot(aes(x = lifespan, y = prop_females_encountered)) +
+   geom_col(fill = "#d0e2af", alpha = 1) +
+  scale_y_continuous(expand = c(0.0, 0.01), limits = c(0, 1)) + 
+  labs(x = "Mean lifespan",
+       y = "Proportion of female population encountered throughout lifetime") +
+  #facet_wrap(~ lifespan) +
+  facet_wrap(~v, nrow = 2,
+             scales = "free", strip.position = c("top"),
+             labeller = label_glue('Male search efficiency = {`v`}')) +
   theme_bw() +
-  theme(strip.background = element_rect(fill = "Aliceblue"))
+  theme(strip.background = element_rect(colour = "black", fill = "aliceblue"),
+        strip.text = element_text(size = 12),
+        axis.title = element_text(size = 12))
   
 ```
 
+**Figure. SX**: the proportion of the female population encountered by a single male across his lifetime, split by how efficiently males search for females. If there are 100 females in the population, a value of 0.1 indicates the male encounters 10 females on average. The decline in potential mating encounters as lifespan decreases indicates the severity of the inbreeding depression cost for males.  
+
+The cost of inbreeding depression manifests differently for females, where the ability to reproduce depends on mating with a male and securing a breeding site. If the population is at carrying capacity, the latter criterion is a function of age, as breeding sites are allocated randomly to non-breeding females once a breeder dies. Therefore, the longer a female lives, the more chances she has of becoming a breeder. If the population is below carrying capacity, the cost of inbreeding is less severe, as a new female can immediately secure a breeding site, leaving mating as the only restriction to offspring production.  
 
 ## Build a mating table
 
-We consider simple single-locus, two-allele systems for autosomal chromosomes, ZW chromosomes, XY chromosomes and cytoplasmic chromosomes. Inheritance is mendelian, except for cytoplamsic chromosomes, which are exclusively maternally inherited.
+To simulate the invasion of alleles found on different chromosomes, we consider simple single-locus, two-allele dynamics. For each chromosomal inheritance system, we build a mating table, which tracks the production of new genotypes from each possible mother-father pair of genotypes in the population. Inheritance is mendelian, except for cytoplamsic chromosomes, which are exclusively maternally inherited.
 
 The simulation tracks the invasion of an allele encoding a preference for inbreeding (denoted _I_), into a population initially dominated by an allele that encodes inbreeding avoidance (denoted _O_ for outbreeding).
 
@@ -903,6 +929,54 @@ make_mating_table <- function(gene_location){
 }
 ```
 
+::: {.panel-tabset}
+
+## Autosomal
+
+```{r}
+make_mating_table(gene_location = "autosomal") %>% 
+  select(locus_type, everything()) %>% 
+  rename(zygote_type = type) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+## XY
+
+```{r}
+make_mating_table(gene_location = "X") %>% 
+  select(locus_type, everything()) %>% 
+  rename(zygote_type = type) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+## ZW
+
+```{r}
+make_mating_table(gene_location = "Y") %>% 
+  select(locus_type, everything()) %>% 
+  rename(zygote_type = type) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+## Cytoplasmic
+
+```{r}
+make_mating_table(gene_location = "cytoplasmic") %>% 
+  select(locus_type, everything()) %>% 
+  rename(zygote_type = type) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+:::
+
 Load the inheritance schemes, to speed up the simulation
 
 ```{r}
@@ -963,14 +1037,21 @@ offspring_genotypes_cytoplasmic <-
   as.data.table()
 ```
 
-An example of the mating table, for an autosomal locus
+```{r, eval=FALSE, include=FALSE}
+# Speed testing
 
-```{r}
-make_mating_table(gene_location = "autosomal") %>% 
-  rename(zygote_type = type) %>% 
-  kable() %>% 
-  kable_styling() %>% 
-  scroll_box(height = "500px")
+mark( 
+  
+  {
+        
+        population[Individual_ID %chin% which_encounter[1],
+                   relative_encountered := 1]
+    
+  },
+  
+  iterations = 2000)
+
+#profvis(continuous_time_simulation(1, parameters_autosome, offspring_genotypes_autosome))
 ```
 
 ## Build the main simulation function
@@ -979,12 +1060,17 @@ make_mating_table(gene_location = "autosomal") %>%
 continuous_time_simulation <- function(row,
                                        parameters,
                                        inheritance_scheme){
+  # package loading need to be done within the function to run on a cluster - local environment is not inherited by cluster
+  library(data.table) 
+  library(tidyverse)
   
-  print(paste("Doing row", row)) # this tells you which row in the parameter space is being modelled
+  sample_vec <- function(x, ...) x[sample(length(x), ...)] # so we can sample from vectors with length 1 without this being interpreted as an integer
   
- # prop_i_table <- data.table(time = numeric(), 
-  #                           proportion_I = numeric(),
-   #                          population_size = numeric()) # filled in as sim progresses
+  print(paste("Doing row", row)) # this shows which row in the parameter space is being modelled
+  
+   prop_i_table <- data.table(time = numeric(), 
+                             proportion_I = numeric(),
+                            population_size = numeric()) # filled in as sim progresses
   
   keep_going <- TRUE # if the inbreeding allele fixes or goes extinct, this will change to false and the while loop will quit early
   
@@ -1003,6 +1089,7 @@ continuous_time_simulation <- function(row,
   refractory_period <- parameters$refractory_period[row]
   D <- parameters$D[row]
   dominance <- parameters$dominance[row]
+  parameter_space_ID <- parameters$parameter_space_ID[row]
   
   # define the starting genotypes for each sex so the population table can be built
   
@@ -1032,7 +1119,8 @@ continuous_time_simulation <- function(row,
                reproduced = 0,
                mated_with = "NA",
                inbred_mating = 0,
-               refractory_period_end = 0
+               refractory_period_end = 0,
+               relative_encountered = 0
     )[, `:=` (Genotype = ifelse(Sex > 0, Female_starting_genotype, Male_starting_genotype),
               breeding = Sex,
               Individual_ID = .I,
@@ -1040,233 +1128,249 @@ continuous_time_simulation <- function(row,
   
   # seed population with the inbreeding allele
   
-  population[sample(which(str_detect(Genotype, pattern = chromosome)), size = number_mutants, replace = F),
-             Genotype := str_replace(Genotype, pattern = paste0(chromosome, "_O"), replacement = paste0(chromosome, "_I"))]
+  # original - random alleles are mutated 
+  
+  #population[sample(which(str_detect(Genotype, pattern = chromosome)), size = number_mutants, replace = F),
+   #         Genotype := str_replace(Genotype, pattern = paste0(chromosome, "_O"), replacement = paste0(chromosome, "_I"))]
+  
+  # current - entire family is mutated on one chromosome, unless the inbreeding allele is on a hemizygous chromosome, then the minimum number of families are mutated to make 5 mutations
+  
+  if(chromosome != "W" & chromosome != "Y"){
+    population[Family_ID %in% sample(unique(population[, Family_ID]), size = 1),
+               Genotype := str_replace(Genotype, pattern = paste0(chromosome, "_O"), replacement = paste0(chromosome, "_I"))]
+  } else{
+    # number_mutants is loaded from the parameter table
+    mutations_made <- 0
+    
+    # Iterate through unique families as needed
+    Families <- sample(unique(population$Family_ID), Starting_pop_size/N)
+    Family_index <- 1
+    
+    while (mutations_made < number_mutants && Family_index <= length(Families)) {
+      current_family <- Families[Family_index]
+      
+      # Identify mutate-able rows from the current family
+      Family_rows <- population[Family_ID == current_family & str_detect(Genotype, pattern = chromosome)]
+      
+      # Calculate how many mutations we can make in this family
+      changes_needed <- number_mutants - mutations_made
+      changes_to_make <- min(nrow(Family_rows), changes_needed)
+      
+      # Select the individuals to mutate
+      rows_to_modify <- Family_rows[1:changes_to_make]
+      
+      # Modify the genotype column in the selected rows
+      population[rows_to_modify, 
+                 Genotype := str_replace(Genotype, pattern = paste0(chromosome, "_O"), replacement = paste0(chromosome, "_I")),
+                 on = "Individual_ID"]
+      
+      # Update the count of changes made
+      mutations_made <- nrow(population[str_detect(Genotype, "I")])
+      
+      # Move to the next group
+      Family_index <- Family_index + 1
+    } 
+  }
   
   # Determining the next event
   
-  # check when the next death occurs
+  # check when the next death occurs: this is the sum of the mortality rates for all individuals in the population
   
   next_death <- rexp(n = 1, rate = sum(population[, mortality_rate]))
   
-  who_died <- population[sample(.N, 1, prob = mortality_rate)]
+  # check when the next receptive female-male encounter occurs
   
-  # check when the next female-male encounter occurs
+  receptive_females <- population[Sex > 0]$Individual_ID # everyone's receptive at the start
+  receptive_males <- population[Sex < 1]$Individual_ID
   
-  # create the possible encounter list
+  # below is the slow way, which I still include to show it's equivalent to the fast way
+  #encounter_possibilities <- 
+  # CJ(Female_ID = population[Sex > 0]$Individual_ID,
+  #   Male_ID = population[Sex < 1]$Individual_ID)[, encounter_rate := v/number_females]
   
-  number_females <- sum(population$Sex > 0)
+  # Find the time the next encounter occurs: plug the sum of the rates into the exponential function. 
+  # The population level encounter rate is the product of the rate at which a single male finds a single female, the number of receptive females in the population, and the number of receptive males in the population
+
+  # 
   
-  encounter_possibilities <- 
-    CJ(Female_ID = population[Sex > 0]$Individual_ID,
-       Male_ID = population[Sex < 1]$Individual_ID)[, encounter_rate := v/number_females]
-  
-  # check the time
-  
-  next_mating <- rexp(n = 1, rate = sum(encounter_possibilities[, encounter_rate]))
-  
-  which_encounter <- encounter_possibilities[sample(.N, 1, prob = encounter_rate)]
-  
+  next_encounter <- rexp(n = 1, rate = length(receptive_females)*length(receptive_males)*v)
   
   # Initialize the timer t to the first encounter
   
-  t <- pmin(next_death, next_mating)
+  t <- pmin(next_death, next_encounter)
   
   # With the initial population ready to go and the first event found, start the timer and let the simulation run. In short, time progresses as events occur. Events can trigger state changes for the individuals in the population, leading to death, mating and offspring production.
   
-  while (t <= time_end & keep_going) {
+  while (t <= time_end & keep_going){
     
-    # what type of encounter happens at time t
+    # death and mating: what type of encounter happens at time t
     
-    if(next_death < next_mating){
+    if(next_death < next_encounter){
       
-      # Male mortality events
+      who_died <- population[sample(.N, 1, prob = mortality_rate)]$Individual_ID 
       
-      if(who_died[,Sex] < 1){
+      # remove individual from population table
+      
+      population <- population[Individual_ID != who_died]
+      
+      # check if mortality event frees up breeding site
+      
+      current_breeders <- sum(population$breeding > 0)
+      
+      # If there is an available breeding site, and at least one female to fill it, recruit a new breeder
+      
+      if(current_breeders < breeding_sites && sum(population$Sex > 0 & population$breeding < 1) > 0){
         
-        # remove male from population table
+        # assign the new breeders
         
-        population <- population[!Individual_ID %chin% who_died$Individual_ID]
-        
+        population <- population[sample_vec(which(breeding < 1 & Sex > 0),
+                                        size = 1), # note that all living females have equal prob of becoming a breeder
+                                 breeding := 1]
       }
+    } 
+    else{
       
-      # Female mortality events
+      which_encounter <- c(sample_vec(receptive_females, 1), sample_vec(receptive_males, 1))
       
-      if(who_died[,Sex] > 0){
-        
-        # remove female from population table and candidate list
-        
-        population <- population[!Individual_ID %chin% who_died$Individual_ID]
-        
-        # check if female mortality event frees up breeding site
-        
-        current_breeders <- sum(population$breeding > 0)
-        
-        # If there is an available breeding site, and at least one female to fill it, recruit a new breeder
-        
-        if(current_breeders < breeding_sites && sum(population$Sex > 0 & population$breeding < 1) > 0){
-          
-          # assign the new breeders
-          
-          population <- population[sample(which(breeding < 1 & Sex > 0),
-                                          size = 1), # note that all living females have equal prob of becoming a breeder
-                                   breeding := 1]
-        }
-      }
-    } else{
+      mates <- NULL # reset this every time as a safeguard
       
       # Opposite sex encounters
       
-      female <- population[Individual_ID %chin% which_encounter$Female_ID]
-      male <- population[Individual_ID %chin% which_encounter$Male_ID]
+      female <- population[Individual_ID %chin% which_encounter[1]]
+      male <- population[Individual_ID %chin% which_encounter[2]]
       
-      # if the encounter occurs involving an individual expressing the A_I allele, provide an opportunity for inbreeding. The hurdle requirement for an inbreeding opportunity is that an individual must stay alive long enough to meet any member of the opposite sex. We then code the simulation such that this opposite sex individual is swapped out for a full-sibling that can be mated with. This simulates a common situation in nature, where due to population viscosity, relatives live in close geographic proximity and are thus more likely to be encountered, or to be encountered early in life. 
-      
-      # First determine if a homogametic individual carrying one copy of the I allele will inbreed on this occasion.  
+      # First determine if a homogametic individual, heterozygous for the I allele, will inbreed on this occasion.  
       
       heterozygote_inbreeds <- rbinom(1, 1, prob = dominance)
       
-      # find males that will inbreed when they are the sex that expresses inbreeding tolerance
+      # find a brother for the female to encounter, if required
       
-      # male heterozygotes (FALSE if there isn't a heterozygote male genotype)
+      brother_encountered <-
+        population[Family_ID %chin% female$Family_ID
+                   # assign a receptive sibling - this is the behavioural trait under selection: 
+                   # should an individual accept an inbred mating early in life occur or not.
+        ][Sex < 1 & t > refractory_period_end, .SD[sample(.N, 1)]] 
       
-      if(sex_expressed < 1 & 
-         str_detect(male$Genotype, heterozygous_genotype) & 
-         heterozygote_inbreeds > 0 &
-         male$refractory_period_end < t){
+      if(nrow(brother_encountered)>0 &
+         female$relative_encountered < 1){
         
-        # find a new mate (sister) for the males
+        # do inbreeding
         
-        sister_mating <-
-          population[Family_ID %chin% male$Family_ID
-          ][Sex > 0, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][matings < 1][, mated_with := male[,Genotype]] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(sister_mating)>0){
+        if(# female heterozygotes
+          sex_expressed > 0 & 
+          str_detect(female$Genotype, heterozygous_genotype) & 
+          heterozygote_inbreeds > 0 |
+          # female homozygotes
+          sex_expressed > 0 & 
+          str_detect(female$Genotype, homozygous_genotype) |
+          # female hemizygotes
+          sex_expressed > 0 & 
+          str_detect(female$Genotype, hemizygous_genotype) |
+          # male heterozygotes
+          sex_expressed < 1 & 
+          str_detect(brother_encountered$Genotype, heterozygous_genotype) & 
+          heterozygote_inbreeds > 0 |
+          # male homozygotes
+          sex_expressed < 1 & 
+          str_detect(brother_encountered$Genotype, homozygous_genotype) |
+          # male hemizygotes
+          sex_expressed < 1 &
+          str_detect(brother_encountered$Genotype, hemizygous_genotype)){
           
-          mates <- rbindlist(list(male, sister_mating))
+          # if mating occurred, update the population
           
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
-      }
-      
-      # male homozygotes (also includes cases where males only ever have one copy of the chromosome e.g. X, Y, C)
-      
-      if(sex_expressed < 1 & 
-         str_detect(male$Genotype, homozygous_genotype) &
-         male$refractory_period_end < t){
-        
-        # find a new mate (sister) for the males
-        
-        sister_mating <-
-          population[Family_ID %chin% male$Family_ID
-          ][Sex > 0, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][matings < 1][, mated_with := male[,Genotype]] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(sister_mating)>0){
-          
-          mates <- rbindlist(list(male, sister_mating))
+          mates <- rbindlist(list(female, brother_encountered))
           
           population[mates,
                      `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
+                          inbred_mating = fifelse(Sex > 0, 1, 0),
+                          mated_with = fifelse(Sex > 0, brother_encountered$Genotype, NA),
+                          refractory_period_end = fifelse(Sex < 1, t + (refractory_period * baseline_mean_lifespan), 0)),
                      on = .(Individual_ID)]
         }
+        
+        # females that had not encountered a relative early in life are coded to have now done so
+        
+        population[female,
+                   relative_encountered := 1,
+                   on = .(Individual_ID)]
+        
       }
       
-      # find females that will inbreed when they are the sex that expresses inbreeding tolerance
+      if(female$relative_encountered < 1 &
+         nrow(brother_encountered) < 1){
       
-      # female heterozygotes (FALSE if there isn't a heterozygote female genotype)
-      
-      if(sex_expressed > 0 & 
-         str_detect(female$Genotype, heterozygous_genotype) & 
-         heterozygote_inbreeds > 0 &
-         female$matings < 1){
+       # females that had no receptive brother to encounter are recorded as having had their chance for inbreeding early in life. When the male refractory period != 0, this is unlikely (because all siblings are produced at the same time) but possible. Most commonly, this will occur when a female produces an all-female brood (0.03125 probability)
         
-        # find a new mate (brother) for the female
-        
-        brother_mating <-
-          population[Family_ID %chin% female$Family_ID
-          ][Sex < 1, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][t > refractory_period_end] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(brother_mating)>0){
-          
-          mates <- rbindlist(list(female[, mated_with := brother_mating[,Genotype]], brother_mating))
-          
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
+        population[female,
+                   relative_encountered := 1,
+                   on = .(Individual_ID)]
       }
       
-      # female homozygotes (also includes cases where females only ever have one copy of the chromosome e.g. Z, W, C)
+      # If the individual has already encountered their sibling, don't swap and let encounter proceed. 
       
-      if(sex_expressed > 0 & 
-         str_detect(female$Genotype, homozygous_genotype) &
-         female$matings < 1){
-        
-        # find a new mate (brother) for the females
-        
-        brother_mating <-
-          population[Family_ID %chin% female$Family_ID
-          ][Sex < 1, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][t > refractory_period_end] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(brother_mating)>0){
-          
-          mates <- rbindlist(list(female[, mated_with := brother_mating[,Genotype]], brother_mating))
-          
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
-      }
+      # If the pair happen to be from the same family, assume individuals can recognise this and depending on genotype, avoid or accept the inbred mating
       
-      # standard outbred mating
-      
-      if((female$matings < 1 & t > male$refractory_period_end) |
-         (female$matings < 1 & t > male$refractory_period_end &
-          sex_expressed < 1 & str_detect(male$Genotype, heterozygous_genotype) & heterozygote_inbreeds < 1) |
-         (female$matings < 1 & t > male$refractory_period_end &
-          sex_expressed > 0 & str_detect(female$Genotype, heterozygous_genotype) & heterozygote_inbreeds < 1)){
+      if(# female heterozygotes
+        sex_expressed > 0 & # female expressed allele
+        female$relative_encountered > 0 & # already encountered their relative
+        female$Family_ID == male$Family_ID & # they've run into another relative 
+        str_detect(female$Genotype, heterozygous_genotype) & # they carry 1 inbreeding allele
+        heterozygote_inbreeds > 0 | # the allele is expressed
+        # female homozygotes
+        sex_expressed > 0 & # female expressed allele
+        male$relative_encountered > 0 & # already encountered relative
+        female$Family_ID == male$Family_ID & # # they've run into another relative
+        str_detect(female$Genotype, homozygous_genotype) |
+        # female hemizygotes
+        sex_expressed > 0 & 
+        male$relative_encountered > 0 & # already encountered relative
+        female$Family_ID == male$Family_ID & # # they've run into another relative
+        str_detect(female$Genotype, hemizygous_genotype) |
+        # male heterozygotes
+        sex_expressed < 1 & # male expressed allele
+        female$relative_encountered > 0 & # already encountered relative
+        female$Family_ID == male$Family_ID & # they've encountered another relative 
+        str_detect(male$Genotype, heterozygous_genotype) & # they carry 1 inbreeding allele
+        heterozygote_inbreeds > 0 | # the allele is expressed
+        # male homozygotes
+        sex_expressed < 1 & # male expressed allele
+        female$relative_encountered > 0 & # already encountered their relative
+        female$Family_ID == male$Family_ID & # # they've run into another relative
+        str_detect(male$Genotype, homozygous_genotype) |
+        # male hemizygotes
+        sex_expressed < 1 & # male expressed allele
+        female$relative_encountered > 0 & # already encountered their relative
+        female$Family_ID == male$Family_ID & # # they've run into another relative
+        str_detect(male$Genotype, hemizygous_genotype)){
         
-        # update the population
-        
-        mates <- rbindlist(list(female[, mated_with := male[,Genotype]], male))
+        mates <- rbindlist(list(female, male))
         
         population[mates,
                    `:=`(matings = matings + 1,
-                        inbred_mating = 0,
-                        mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                        refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                   on = .(Individual_ID)] 
+                        inbred_mating = fifelse(Sex > 0, 1, 0),
+                        mated_with = fifelse(Sex > 0, male$Genotype, NA),
+                        refractory_period_end = fifelse(Sex < 1, t + (refractory_period * baseline_mean_lifespan), 0)),
+                   on = .(Individual_ID)]
+      }
+      
+      # encounters between non-relatives
+      
+      if(female$Family_ID != male$Family_ID &
+         female$relative_encountered > 0){
+        
+        mates <- rbindlist(list(female, male))
+        
+        population[mates,
+                   `:=`(matings = matings + 1,
+                        mated_with = fifelse(Sex > 0, male$Genotype, NA),
+                        refractory_period_end = fifelse(Sex < 1, t + (refractory_period * baseline_mean_lifespan), 0)),
+                   on = .(Individual_ID)]
       }
       
     }
     
-    # reproduction
+    # Are there consequences of death and mating: reproduction
     
     # check if a female can now produce offspring, either because they're previously mated and have secured a breeding site or because they already held a breeding site and have now mated
     
@@ -1283,7 +1387,7 @@ continuous_time_simulation <- function(row,
                           on = .(Female_genotype = Female_genotype,
                                  Male_genotype = Male_genotype), 
                           nomatch = NULL, allow.cartesian  = TRUE
-        ][, .SD[sample(.N, # I think this value is very occasionally zero, causing the sim to break
+        ][, .SD[sample(.N,
                        size = N, 
                        prob = zygote_freq, 
                        replace = T)]
@@ -1292,15 +1396,16 @@ continuous_time_simulation <- function(row,
               Sex, 
               inbred_mating,
               Family_ID)
-        ][, `:=`(mortality_rate = ifelse(inbred_mating > 0, 
+        ][, `:=`(mortality_rate = fifelse(inbred_mating > 0, 
                                          1/(baseline_mean_lifespan + D), # the cost of inbreeding: D <= 0
-                                         1/baseline_mean_lifespan), # outbred offspring mortality risk
+                                         1/baseline_mean_lifespan), # outbred offspring mortality rate
                  birth_time = t,
                  breeding = 0,
                  matings = 0,
                  reproduced = 0,
                  mated_with = "NA",
                  refractory_period_end = t,
+                 relative_encountered = 0,
                  Individual_ID = .I + Individual_ID_counter,
                  inbred_mating = 0)]
       
@@ -1313,7 +1418,6 @@ continuous_time_simulation <- function(row,
       Individual_ID_counter <- max(population$Individual_ID)
       Family_ID_counter <- max(population$Family_ID) 
     }
-    
     
     # Calculate the frequency of the I allele, quit early if I fixes or goes extinct
     
@@ -1347,12 +1451,12 @@ continuous_time_simulation <- function(row,
     }
     
     # this is a diagnostic to make sure the model is running well - it can be commented out when running the big simulation
-    #prop_i_table <- rbindlist(list(prop_i_table, list(t, prop_i, nrow(population))))
+    prop_i_table <- rbindlist(list(prop_i_table, list(t, prop_i, nrow(population))))
     
-    print(paste0("Population size = ", nrow(population),
+    print(paste0("Population size = ", nrow(population), ", breeders = ", sum(population$breeding > 0), 
                  ", time = ", round(t, 3)))
     
-    if(prop_i > 0.95 | prop_i < 0.0001 | nrow(population) < 2) keep_going <- FALSE
+    if(prop_i > 0.5 | prop_i < 0.0001 | nrow(population) < 2) keep_going <- FALSE
     
     # Move t to next encounter
     
@@ -1362,43 +1466,41 @@ continuous_time_simulation <- function(row,
     
     next_death <- rexp(n = 1, rate = sum(population[, mortality_rate]))
     
-    who_died <- population[sample(.N, 1, prob = mortality_rate)]
+    # check when the next receptive female-male encounter occurs
     
-    # check when the next female-male encounter occurs
+    receptive_females <- population[Sex > 0 & matings < 1]$Individual_ID
+    receptive_males <- population[Sex < 1 & refractory_period_end <= t]$Individual_ID
     
-    # create the possible encounter list
+    if(length(receptive_females)*length(receptive_males) > 0){
+      
+      # check the time: this is the sum of the rates, because each male finds each female at the same rate
+      
+      next_encounter <- rexp(n = 1, rate = length(receptive_females)*length(receptive_males)*v)
+      
+      # Initialize the timer t to the next encounter
+      
+    }else{next_encounter <- 10^3} # make this a number that will never be exceeded by a death time
     
-    number_females <- sum(population$Sex > 0)
-    
-    encounter_possibilities <- 
-      CJ(Female_ID = population[Sex > 0]$Individual_ID,
-         Male_ID = population[Sex < 1]$Individual_ID)[, encounter_rate := v/number_females]
-    
-    # check the time
-    
-    next_mating <- rexp(n = 1, rate = sum(encounter_possibilities[, encounter_rate]))
-    
-    which_encounter <- encounter_possibilities[sample(.N, 1, prob = encounter_rate)]
-    
-    # Initialize the timer t to the next encounter
-    
-    t <- t + pmin(next_death, next_mating)  
+    t <- t + pmin(next_death, next_encounter) 
     
   }
   finish_time <- t
   final_pop_size = nrow(population)
-  
-  #prop_i_table
-  
-  # Print the simulation results
-  #list(
-  parameters[row, ] %>% mutate(I_frequency = prop_i,
-                               finish_time = finish_time,
-                               final_pop_size = final_pop_size) %>% 
+
+# cut the i table down to 1 row per 0.1 time increment, join with the relevant parameter space info and save as a csv.  
+    
+prop_i_table %>%
+  mutate(time_group = floor(time / 0.1) * 0.1) %>%
+  group_by(time_group) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(-time_group) %>%
+  bind_rows(prop_i_table %>% filter(row_number()==n())) %>%
+  distinct() %>% 
+  bind_cols(parameters[row, ] %>% 
     select(-c(heterozygous_genotype, homozygous_genotype, hemizygous_genotype,
-              number_mutants, baseline_mean_lifespan, N, time_end))
-   # population,
-    #prop_i_table)
+              number_mutants, baseline_mean_lifespan, N, time_end))) %>% 
+    write_csv(paste("sim_results/rowID_", parameter_space_ID, chromosome, ".csv", sep = ""))
 }
 ```
 
@@ -1406,7 +1508,7 @@ continuous_time_simulation <- function(row,
 
 The effect of the relatedness coefficient on the fitness of an inbreeding allele when there is non-zero inbreeding depression is well described. Therefore, we choose to set $r = 0.5$ for all inbreeding events and instead focus on the effect of varying 1) $v$, 2) $\delta$, 3) the male cost to mating, here coded as a refractory period following mating, and 4) the chromosome upon which the the allele is found. 
 
-Populations also differ in the number of breeding females they can support, in order to standardise the number of chromosomes carrying the focal locus. For example, when the inbreeding locus is found on an autosome, a population of 200 individuals harbours 400 copies of the inbreeding locus. If the allele is instead found on a cytoplasmic chromosome (and we assume no heteroplasmy), each individual only carries one copy of the locus and a population size of 400 individuals is needed to match the number of chromosomes with the autosomal case. 
+Populations also differ in the number of breeding females they can support, in order to standardise the number of chromosomes carrying the focal locus. For example, when the inbreeding locus is found on an autosome, a population of 200 individuals harbours 400 copies of the inbreeding locus. If the allele is instead found on a cytoplasmic chromosome (and we assume no heteroplasmy), each individual only carries one copy of the locus and a population size of 400 individuals is needed to equalise the population size of chromosomes. $v$ is adjusted in accordance with the individual population size, so as to ensure that males meet the same number of individuals on average across simulation runs - this is akin to keeping the population density constant between simulation runs. 
 
 ```{r}
 resolution <- 30
@@ -1416,9 +1518,9 @@ parameters <-
   expand_grid(
     #C = c(2, 10),
     chromosome = c("A", "X", "Y", "Z", "W", "C"),
-    v = c(1, 5, 50),
+    v = c(0.02, 2),
     D = seq(0, -0.99, length = resolution), # inbreeding depression
-    refractory_period = seq(0, 1, length = resolution)
+    refractory_period = seq(0, 1, length = 15)
   ) %>% 
   full_join(tibble(chromosome = c("A", "A", "A", "A", "A", "A",
                                   "X", "X", "X", "X",
@@ -1463,8 +1565,9 @@ parameters <-
                                                    chromosome == "C" ~ starting_pop_size_autosomes*2)),
             relationship = "many-to-many", by = "chromosome") %>% 
   mutate(baseline_mean_lifespan = 1,
+         v = v * (starting_pop_size_autosomes / Starting_pop_size),
          N = 5, # subject to change
-         number_mutants = 4, # this equates to a starting frequency of 0.01
+         number_mutants = N, # this is the size of a family
          time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
          parameter_space_ID = row_number())
 
@@ -1477,68 +1580,668 @@ parameters_C <- parameters %>% filter(chromosome == "C")
   
 ```
 
-## Speed testing
-
-The function below can be used to test computation speed
-
-```{r, eval=FALSE}
-
-profvis(continuous_time_simulation(1, parameters_autosome, offspring_genotypes_autosome))
-
+```{r, include=FALSE}
+#population <- 
+  #continuous_time_simulation(2, parameters_W, inheritance_scheme = offspring_genotypes_W)
 ```
 
 ## Run the simulation
 
 We run one simulation per row in the parameter space table.
 
-```{r, eval=FALSE}
-# lapply returns output as list
+```{r}
 
-x <- lapply(1:2, continuous_time_simulation, 
-       parameters = parameters_autosome, 
-       offspring_genotypes_autosome)
+parameters_autosome <- parameters_autosome[sample(nrow(parameters_autosome)), ] # shuffle to equalise workload across jobs
+parameters_X <- parameters_X[sample(nrow(parameters_X)), ] # shuffle to equalise workload across jobs
+parameters_Z <- parameters_Z[sample(nrow(parameters_Z)), ] # shuffle to equalise workload across jobs
+parameters_Y <- parameters_Y[sample(nrow(parameters_Y)), ] # shuffle to equalise workload across jobs
+parameters_Z <- parameters_Z[sample(nrow(parameters_Z)), ] # shuffle to equalise workload across jobs
+parameters_C <- parameters_C[sample(nrow(parameters_C)), ] # shuffle to equalise workload across jobs
 
-# map_dfr returns output as dataframe
+# run the simulation in parallel using all local CPUs on your computer. The code below uses the autosomal parameter space as an example.
 
-if(!file.exists("sim_results/sim_autosomal_results.csv")){
-autosomes <- map_dfr(1:16200, continuous_time_simulation,
-                    parameters = parameters_autosome,
-                    offspring_genotypes_autosome)
-
-write_csv(autosomes, "sim_results/sim_autosomal_results.csv")
-}
-
-if(!file.exists("sim_results/sim_X_results.csv")){
-X <- map_dfr(1:19200, continuous_time_simulation, parameters = parameters_X, offspring_genotypes_X)
-
-write_csv(X, "sim_results/sim_X_results.csv")
-}
-
-if(!file.exists("sim_results/sim_Y_results.csv")){
-Y <- map_dfr(1:2700, continuous_time_simulation, parameters = parameters_Y, offspring_genotypes_Y)
-
-write_csv(Y, "sim_results/sim_Y_results.csv")
-}
-
-if(!file.exists("sim_results/sim_Z_results.csv")){
-Z <- map_dfr(1:19200, continuous_time_simulation, parameters = parameters_Z)
-
-write_csv(Z, "sim_results/sim_Z_results.csv")
-}
-
-if(!file.exists("sim_results/sim_W_results.csv")){
-W <- map_dfr(1:2700, continuous_time_simulation, parameters = parameters_W, offspring_genotypes_W)
-
-write_csv(W, "sim_results/sim_W_results.csv")
-}
-
-if(!file.exists("sim_results/sim_cytoplasmic_results.csv")){
-cytoplasmic <- map_dfr(1:5400, continuous_time_simulation, parameters = parameters_C, offspring_genotypes_cytoplasmic)
-
-write_csv(cytoplasmic, "sim_results/sim_cytoplasmic_results.csv")
+if(!file.exists("results/complete_results.csv")){
+  
+  # get the number of cores on the computer 
+  n.cores <- parallel::detectCores()
+  
+  # make the cluster
+  cluster <- parallel::makeCluster(n.cores)
+  
+  # split parameters across cluster
+  parallel::clusterExport(cluster, paste("parameters_autosome"))
+  
+  parallel::parLapply(cluster,
+                      1:nrow(parameters_autosome),
+                      continuous_time_simulation,
+                      parameters_autosome,
+                      offspring_genotypes_autosome)
 }
 
 ```
+
+## Load the results
+
+```{r}
+
+# build a function to load the individual runs and join them into a single tibble
+
+load_results <- function(chromosome){
+  
+  files <-
+    list.files(path = "sim_results") %>% 
+    str_subset(chromosome)
+  
+  paste("sim_results/", files, sep = "") %>% 
+    vroom() 
+}
+
+if(!file.exists("results/complete_results.csv")){
+  cytoplasmic_results <- load_results("C")
+  y_sim_results <- load_results("Y") 
+  X_sim_results <- load_results("X")
+  Z_sim_results <- load_results("Z")
+  W_sim_results <- load_results("W")
+  A_sim_results <- load_results("A")
+  
+  sim_results <-  
+    bind_rows(A_sim_results,
+              y_sim_results,
+              X_sim_results,
+              Z_sim_results,
+              W_sim_results,
+              cytoplasmic_sim_results) 
+  
+  sim_results %>% 
+    write_csv("results/complete_results.csv")} else{
+      sim_results <- read_csv("results/complete_results.csv")
+    }
+```
+
+## Plot the results
+
+### Simulation diagnostics
+
+```{r}
+# load a palette used in all tabs
+temp <- pnw_palette("Shuksan2",100)
+```
+
+::: {.panel-tabset}
+
+## Autosomes
+
+```{r}
+A_allele_tracking <-
+  sim_results %>%
+  filter(chromosome == "A") %>% 
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females"),
+                                   v = round(v, 2)) %>% 
+  ggplot(aes(x = time, y = proportion_I)) + 
+  geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Frequency of _I_ allele",
+       colour = "Inbreeding depression") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+
+A_pop_tracking <-
+  sim_results %>%
+  filter(chromosome == "A") %>%   
+    mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females"),
+                                   v = round(v, 2)) %>% 
+  ggplot(aes(x = time, y = population_size)) + 
+  geom_line(aes(group = parameter_space_ID, colour = refractory_period), alpha = 0.6) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 75)) + 
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Population size",
+       colour = "Mating system") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+        
+A_pop_tracking / A_allele_tracking
+```
+
+## X
+
+```{r}
+X_allele_tracking <-
+  sim_results %>%
+  filter(chromosome == "X") %>% 
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = proportion_I)) + 
+  geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Frequency of _I_ allele",
+       colour = "Inbreeding depression") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+
+X_pop_tracking <-
+  sim_results %>%
+  filter(chromosome == "X") %>%   
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = population_size)) + 
+  geom_line(aes(group = parameter_space_ID, colour = refractory_period), alpha = 0.6) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 75)) + 
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Population size",
+       colour = "Mating system") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+        
+X_pop_tracking / X_allele_tracking
+```
+
+## Z
+
+```{r}
+Z_allele_tracking <-
+  sim_results %>%
+  filter(chromosome == "Z") %>% 
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females"),
+                                   v = round(v, 2)) %>% 
+  ggplot(aes(x = time, y = proportion_I)) + 
+  geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Frequency of _I_ allele",
+       colour = "Inbreeding depression") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+
+Z_pop_tracking <-
+  sim_results %>%
+  filter(chromosome == "Z") %>%   
+    mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females"),
+                                   v = round(v, 2)) %>% 
+  ggplot(aes(x = time, y = population_size)) + 
+  geom_line(aes(group = parameter_space_ID, colour = refractory_period), alpha = 0.6) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 75)) + 
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Population size",
+       colour = "Mating system") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+        
+Z_pop_tracking / Z_allele_tracking
+```
+
+## Y
+
+```{r}
+Y_allele_tracking <-
+  sim_results %>%
+  filter(chromosome == "Y") %>% 
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = proportion_I)) + 
+  geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Frequency of _I_ allele",
+       colour = "Inbreeding depression") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+
+Y_pop_tracking <-
+  sim_results %>%
+  filter(chromosome == "Y") %>%   
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = population_size)) + 
+  geom_line(aes(group = parameter_space_ID, colour = refractory_period), alpha = 0.6) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 75)) + 
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Population size",
+       colour = "Mating system") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+        
+Y_pop_tracking / Y_allele_tracking
+```
+
+## W
+
+```{r}
+W_allele_tracking <-
+  sim_results %>%
+  filter(chromosome == "W") %>% 
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = proportion_I)) + 
+  geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 125), breaks = c(0, 25, 50, 75, 100)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Frequency of _I_ allele",
+       colour = "Inbreeding depression") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+
+W_pop_tracking <-
+  sim_results %>%
+  filter(chromosome == "W") %>%   
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = population_size)) + 
+  geom_line(aes(group = parameter_space_ID, colour = refractory_period), alpha = 0.6) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 75)) + 
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Population size",
+       colour = "Mating system") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+        
+W_pop_tracking / W_allele_tracking
+```
+
+## Cytoplasmic
+
+```{r}
+C_allele_tracking <-
+  sim_results %>%
+  filter(chromosome == "C") %>% 
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = proportion_I)) + 
+  geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 125), breaks = c(0, 25, 50, 75, 100)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Frequency of _I_ allele",
+       colour = "Inbreeding depression") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+
+C_pop_tracking <-
+  sim_results %>%
+  filter(chromosome == "C") %>%   
+  mutate(D_prop = D*-1,
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>% 
+  ggplot(aes(x = time, y = population_size)) + 
+  geom_line(aes(group = parameter_space_ID, colour = refractory_period), alpha = 0.6) +
+  #geom_smooth(linewidth = 2) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 75)) + 
+  #scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+  scale_colour_gradientn(colours = temp) +
+  labs(x = "Time",
+       y = "Population size",
+       colour = "Mating system") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = 
+               label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.title.y = element_markdown(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.text = element_text(size = 12))
+        
+C_pop_tracking / C_allele_tracking
+
+```
+
+
+:::
+
+### When is inbreeding preference selected?
+
+::: {.panel-tabset}
+
+## Autosomal
+
+```{r}
+
+A_heatmap <-
+  sim_results %>%
+  filter(chromosome == "A") %>%  
+  group_by(parameter_space_ID) %>% 
+  slice_tail() %>% 
+  mutate(D_prop = D*-1,
+         Fate = case_when(population_size < 100 ~ "Extinction",
+                          proportion_I  > 0.5 ~ "Invades",
+                          proportion_I  < 0.001 ~ "Purged"),
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>%
+  ggplot(aes(x = D_prop, y = refractory_period)) +
+  geom_blank() +
+  geom_tile(aes(fill = Fate), alpha = 1) + 
+  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], 
+                               pnw_palette("Shuksan2", n = 5)[4], 
+                               pnw_palette("Shuksan2", n = 5)[5])) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period",
+       fill = "Fate of _I_ allele",
+       title = "Autosomal inbreeding alleles") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        legend.title = element_markdown())
+
+A_heatmap
+```
+
+## X
+
+```{r}
+
+X_heatmap <-
+  sim_results %>%
+  filter(chromosome == "X") %>%  
+  group_by(parameter_space_ID) %>% 
+  slice_tail() %>% 
+  mutate(D_prop = D*-1,
+         Fate = case_when(population_size < 100 ~ "Extinction",
+                          proportion_I  > 0.5 ~ "Invades",
+                          proportion_I  < 0.001 ~ "Purged"),
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>%
+  ggplot(aes(x = D_prop, y = refractory_period)) +
+  geom_blank() +
+  geom_tile(aes(fill = Fate), alpha = 1) + 
+  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period",
+       fill = "Fate of _I_ allele",
+       title = "X-linked inbreeding alleles") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        legend.title = element_markdown())
+
+X_heatmap
+```
+
+## Z
+
+```{r}
+
+Z_heatmap <-
+  sim_results %>%
+  filter(chromosome == "Z") %>%  
+  group_by(parameter_space_ID) %>% 
+  slice_tail() %>% 
+  mutate(D_prop = D*-1,
+         Fate = case_when(population_size < 100 ~ "Extinction",
+                          proportion_I  > 0.5 ~ "Invades",
+                          proportion_I  < 0.001 ~ "Purged"),
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>%
+  ggplot(aes(x = D_prop, y = refractory_period)) +
+  geom_blank() +
+  geom_tile(aes(fill = Fate), alpha = 1) + 
+  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period",
+       fill = "Fate of _I_ allele",
+       title = "Z-linked inbreeding alleles") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        legend.title = element_markdown())
+
+Z_heatmap
+```
+
+## Y
+
+```{r}
+
+Y_heatmap <-
+  sim_results %>%
+  filter(chromosome == "Y") %>%  
+  group_by(parameter_space_ID) %>% 
+  slice_tail() %>% 
+  mutate(D_prop = D*-1,
+         Fate = case_when(population_size < 100 ~ "Extinction",
+                          proportion_I  > 0.5 ~ "Invades",
+                          proportion_I  < 0.001 ~ "Purged"),
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>%
+  ggplot(aes(x = D_prop, y = refractory_period)) +
+  geom_blank() +
+  geom_tile(aes(fill = Fate), alpha = 1) + 
+  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period",
+       fill = "Fate of _I_ allele",
+       title = "Y-linked inbreeding alleles") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        legend.title = element_markdown())
+
+Y_heatmap
+```
+
+## W
+
+```{r}
+
+W_heatmap <-
+  sim_results %>%
+  filter(chromosome == "W") %>%  
+  group_by(parameter_space_ID) %>% 
+  slice_tail() %>% 
+  mutate(D_prop = D*-1,
+         Fate = case_when(population_size < 100 ~ "Extinction",
+                          proportion_I  > 0.5 ~ "Invades",
+                          proportion_I  < 0.001 ~ "Purged"),
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>%
+  ggplot(aes(x = D_prop, y = refractory_period)) +
+  geom_blank() +
+  geom_tile(aes(fill = Fate), alpha = 1) + 
+  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period",
+       fill = "Fate of _I_ allele",
+       title = "W-linked inbreeding alleles") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        legend.title = element_markdown())
+
+W_heatmap
+```
+
+## Cytoplasmic
+
+```{r}
+
+C_heatmap <-
+  sim_results %>%
+  filter(chromosome == "C") %>%  
+  group_by(parameter_space_ID) %>% 
+  slice_tail() %>% 
+  mutate(D_prop = D*-1,
+         Fate = case_when(population_size < 100 ~ "Extinction",
+                          proportion_I  > 0.5 ~ "Invades",
+                          proportion_I  < 0.001 ~ "Purged"),
+         sex_expressed = case_when(sex_expressed == 0 ~ "Males",
+                                   .default = "Females")) %>%
+  ggplot(aes(x = D_prop, y = refractory_period)) +
+  geom_blank() +
+  geom_tile(aes(fill = Fate), alpha = 1) + 
+  #geom_vline(xintercept = 0.66, linetype = 2, colour = "white", linewidth = .8) +
+  scale_fill_manual(values = c(pnw_palette("Shuksan2", n = 5)[2], pnw_palette("Shuksan2", n = 5)[4], pnw_palette("Shuksan2", n = 5)[5])) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period",
+       fill = "Fate of _I_ allele",
+       title = "Cytoplasmic inbreeding alleles") +
+  facet_wrap(v~sex_expressed, nrow = 2,
+             labeller = label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        legend.title = element_markdown())
+
+C_heatmap
+```
+
+:::
 
 # Session information
 
