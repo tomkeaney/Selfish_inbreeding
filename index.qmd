@@ -454,11 +454,11 @@ make_genomic_conflict_plot <-
             panel.grid.minor = element_blank(),
             strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
             axis.title.x = element_markdown(),
-            plot.title = element_text(hjust = 0.5, size = 10))
+            plot.title = element_text(hjust = 0.5, size = 9))
   }
 
-icf <- make_genomic_conflict_plot(Intragenomic_conflict_females, "A. Inter-chromosomal conflict in females", oranges)
-icm <- make_genomic_conflict_plot(Intragenomic_conflict_males, "B. Inter-chromosomal conflict in males", oranges)
+icf <- make_genomic_conflict_plot(Intragenomic_conflict_females, "A. Female inter-chromosomal conflict", oranges)
+icm <- make_genomic_conflict_plot(Intragenomic_conflict_males, "B. Male inter-chromosomal conflict", oranges)
 ```
 
 Make column 3  
@@ -1671,7 +1671,7 @@ temp <- pnw_palette("Shuksan2",100)
 
 ## Autosomes
 
-```{r, fig.height=6}
+```{r, fig.height=10}
 A_allele_tracking <-
   sim_results %>%
   filter(chromosome == "A") %>% 
@@ -1682,7 +1682,7 @@ A_allele_tracking <-
   ggplot(aes(x = time, y = proportion_I)) + 
   geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
   #geom_smooth(linewidth = 2) +
-  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 50, 100, 150)) + 
   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
   scale_colour_gradientn(colours = temp) +
   labs(x = "Time",
@@ -1722,14 +1722,12 @@ A_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-A_pop_tracking
-
-A_allele_tracking
+A_pop_tracking / A_allele_tracking
 ```
 
 ## X
 
-```{r, fig.height=6}
+```{r, fig.height=10}
 X_allele_tracking <-
   sim_results %>%
   filter(chromosome == "X") %>% 
@@ -1739,7 +1737,7 @@ X_allele_tracking <-
   ggplot(aes(x = time, y = proportion_I)) + 
   geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
   #geom_smooth(linewidth = 2) +
-  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 50, 100, 150)) + 
   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
   scale_colour_gradientn(colours = temp) +
   labs(x = "Time",
@@ -1778,14 +1776,12 @@ X_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-X_pop_tracking
-
-X_allele_tracking
+X_pop_tracking/X_allele_tracking
 ```
 
 ## Z
 
-```{r, fig.height=6}
+```{r, fig.height=10}
 Z_allele_tracking <-
   sim_results %>%
   filter(chromosome == "Z") %>% 
@@ -1796,7 +1792,7 @@ Z_allele_tracking <-
   ggplot(aes(x = time, y = proportion_I)) + 
   geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
   #geom_smooth(linewidth = 2) +
-  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 50, 100, 150)) + 
   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
   scale_colour_gradientn(colours = temp) +
   labs(x = "Time",
@@ -1836,9 +1832,7 @@ Z_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-Z_pop_tracking 
-
-Z_allele_tracking
+Z_pop_tracking /Z_allele_tracking
 ```
 
 ## Y
@@ -1853,7 +1847,7 @@ Y_allele_tracking <-
   ggplot(aes(x = time, y = proportion_I)) + 
   geom_line(aes(group = parameter_space_ID, colour = D_prop), alpha = 0.4) +
   #geom_smooth(linewidth = 2) +
-  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 25, 50, 75, 100, 125, 150, 175)) + 
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 200), breaks = c(0, 50, 100, 150)) + 
   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
   scale_colour_gradientn(colours = temp) +
   labs(x = "Time",
@@ -1892,9 +1886,7 @@ Y_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-Y_pop_tracking
-
-Y_allele_tracking
+Y_pop_tracking/Y_allele_tracking
 ```
 
 ## W
