@@ -276,7 +276,7 @@ analytical_results <-
 
 In the figure below, the dashed lines indicate the level of inbreeding depression that can be tolerated for a given value of $r$. The plot is split into panels by $c$, the cost of mating for males relative to females and $a$, the probability that a locus present in one sex is also present in the gametes produced by the other.
 
-```{r, fig.height=10, fig.width=8.6}
+```{r, fig.height=10, fig.width=10}
 pal1 <- met.brewer("OKeeffe1", n=100, direction = -1)
 pal2 <- met.brewer("Hiroshige", n=50, direction = -1)
 #pal2 <- moma.colors("Avedon", n = 50, direction = 1)
@@ -562,7 +562,7 @@ Sexual_conflict_plot <-
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.title.x = element_markdown(),
-        plot.title = element_text(hjust = 0.5, size = 10))
+        plot.title = element_text(hjust = 0.5, size = 7))
 ```
 
 ## Make Figure 1
@@ -1520,7 +1520,7 @@ parameters <-
   expand_grid(
     #C = c(2, 10),
     chromosome = c("A", "X", "Y", "Z", "W", "C"),
-    v = c(0.02, 2),
+    v = c(0.02, 0.05, 2),
     D = seq(0, -0.99, length = resolution), # inbreeding depression
     refractory_period = seq(0, 1, length = 15)
   ) %>% 
@@ -1593,12 +1593,12 @@ We run one simulation per row in the parameter space table.
 
 ```{r}
 
-parameters_autosome <- parameters_autosome[sample(nrow(parameters_autosome)), ] # shuffle to equalise workload across jobs
-parameters_X <- parameters_X[sample(nrow(parameters_X)), ] # shuffle to equalise workload across jobs
-parameters_Z <- parameters_Z[sample(nrow(parameters_Z)), ] # shuffle to equalise workload across jobs
-parameters_Y <- parameters_Y[sample(nrow(parameters_Y)), ] # shuffle to equalise workload across jobs
-parameters_Z <- parameters_Z[sample(nrow(parameters_Z)), ] # shuffle to equalise workload across jobs
-parameters_C <- parameters_C[sample(nrow(parameters_C)), ] # shuffle to equalise workload across jobs
+parameters_autosome <- parameters_autosome %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+parameters_X <- parameters %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+parameters_Z <- parameters_Z %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+parameters_Y <- parameters_Y %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+parameters_W <- parameters_W %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+parameters_C <- parameters_C %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
 
 # run the simulation in parallel using all local CPUs on your computer. The code below uses the autosomal parameter space as an example.
 
@@ -1611,13 +1611,13 @@ if(!file.exists("results/complete_results.csv")){
   cluster <- parallel::makeCluster(n.cores)
   
   # split parameters across cluster
-  parallel::clusterExport(cluster, paste("parameters_autosome"))
+  parallel::clusterExport(cluster, paste("parameters_Y"))
   
   parallel::parLapply(cluster,
-                      1:nrow(parameters_autosome),
+                      1:nrow(parameters_Y),
                       continuous_time_simulation,
-                      parameters_autosome,
-                      offspring_genotypes_autosome)
+                      parameters_Y,
+                      offspring_genotypes_Y)
 }
 
 ```
@@ -1652,7 +1652,7 @@ if(!file.exists("results/complete_results.csv")){
               X_sim_results,
               Z_sim_results,
               W_sim_results,
-              cytoplasmic_sim_results) 
+              cytoplasmic_results) 
   
   sim_results %>% 
     write_csv("results/complete_results.csv")} else{
@@ -1673,7 +1673,7 @@ temp <- pnw_palette("Shuksan2",100)
 
 ## Autosomes
 
-```{r, fig.height=10}
+```{r, fig.height=10, fig.width=8}
 A_allele_tracking <-
   sim_results %>%
   filter(chromosome == "A") %>% 
@@ -1690,7 +1690,7 @@ A_allele_tracking <-
   labs(x = "Time",
        y = "Frequency of _I_ allele",
        colour = "Inbreeding depression") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1715,7 +1715,7 @@ A_pop_tracking <-
   labs(x = "Time",
        y = "Population size",
        colour = "Mating system") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1729,7 +1729,7 @@ A_pop_tracking / A_allele_tracking
 
 ## X
 
-```{r, fig.height=10}
+```{r, fig.height=10, fig.width=8}
 X_allele_tracking <-
   sim_results %>%
   filter(chromosome == "X") %>% 
@@ -1745,7 +1745,7 @@ X_allele_tracking <-
   labs(x = "Time",
        y = "Frequency of _I_ allele",
        colour = "Inbreeding depression") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(~sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1769,7 +1769,7 @@ X_pop_tracking <-
   labs(x = "Time",
        y = "Population size",
        colour = "Mating system") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1783,7 +1783,7 @@ X_pop_tracking/X_allele_tracking
 
 ## Z
 
-```{r, fig.height=10}
+```{r, fig.height=10, fig.width=8}
 Z_allele_tracking <-
   sim_results %>%
   filter(chromosome == "Z") %>% 
@@ -1800,7 +1800,7 @@ Z_allele_tracking <-
   labs(x = "Time",
        y = "Frequency of _I_ allele",
        colour = "Inbreeding depression") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1825,7 +1825,7 @@ Z_pop_tracking <-
   labs(x = "Time",
        y = "Population size",
        colour = "Mating system") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1839,7 +1839,7 @@ Z_pop_tracking /Z_allele_tracking
 
 ## Y
 
-```{r, fig.height=6}
+```{r, fig.height=10, fig.width=8}
 Y_allele_tracking <-
   sim_results %>%
   filter(chromosome == "Y") %>% 
@@ -1855,7 +1855,7 @@ Y_allele_tracking <-
   labs(x = "Time",
        y = "Frequency of _I_ allele",
        colour = "Inbreeding depression") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1879,7 +1879,7 @@ Y_pop_tracking <-
   labs(x = "Time",
        y = "Population size",
        colour = "Mating system") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1893,7 +1893,7 @@ Y_pop_tracking/Y_allele_tracking
 
 ## W
 
-```{r, fig.height=6}
+```{r, fig.height=10, fig.width=8}
 W_allele_tracking <-
   sim_results %>%
   filter(chromosome == "W") %>% 
@@ -1909,7 +1909,7 @@ W_allele_tracking <-
   labs(x = "Time",
        y = "Frequency of _I_ allele",
        colour = "Inbreeding depression") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1933,7 +1933,7 @@ W_pop_tracking <-
   labs(x = "Time",
        y = "Population size",
        colour = "Mating system") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1942,14 +1942,12 @@ W_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-W_pop_tracking
-
-W_allele_tracking
+W_pop_tracking/W_allele_tracking
 ```
 
 ## Cytoplasmic
 
-```{r, fig.height=6}
+```{r, fig.height=10, fig.width=8}
 C_allele_tracking <-
   sim_results %>%
   filter(chromosome == "C") %>% 
@@ -1965,7 +1963,7 @@ C_allele_tracking <-
   labs(x = "Time",
        y = "Frequency of _I_ allele",
        colour = "Inbreeding depression") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1989,7 +1987,7 @@ C_pop_tracking <-
   labs(x = "Time",
        y = "Population size",
        colour = "Mating system") +
-  facet_wrap(v~sex_expressed, nrow = 2,
+  facet_wrap(sex_expressed~v, nrow = 2,
              labeller = 
                label_glue('Sex expressing inbreeding allele: {`sex_expressed`}\nMale search efficiency: {`v`}')) +
   theme_bw() +
@@ -1998,9 +1996,7 @@ C_pop_tracking <-
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.text = element_text(size = 12))
         
-C_pop_tracking
-
-C_allele_tracking
+C_pop_tracking/C_allele_tracking
 
 ```
 
@@ -2013,7 +2009,7 @@ C_allele_tracking
 
 ## Autosomal
 
-```{r}
+```{r, fig.width=8}
 
 data <-
   sim_results %>%
@@ -2027,7 +2023,8 @@ data <-
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
                                    .default = "Females"),
-         v_cat = case_when(v < 0.5 ~ "Low",
+         v_cat = case_when(v == 0.02 ~ "Very low",
+                           v == 0.05 ~ "Low",
                            .default = "High"))
 
 A_heatmap <-
@@ -2064,7 +2061,7 @@ A_heatmap
 
 ## X
 
-```{r}
+```{r, fig.width=8}
 
 data <-
   sim_results %>%
@@ -2073,12 +2070,14 @@ data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
+         v = round(v, 3),
          Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
                                    .default = "Females"),
-         v_cat = case_when(v < 0.5 ~ "Low",
+         v_cat = case_when(v == 0.015 ~ "Very low",
+                           v == 0.038 ~ "Low",
                            .default = "High"))
 
 X_heatmap <-
@@ -2115,7 +2114,7 @@ X_heatmap
 
 ## Z
 
-```{r}
+```{r, fig.width=8}
 data <-
   sim_results %>%
   filter(chromosome == "Z") %>%  
@@ -2123,12 +2122,14 @@ data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
+         v = round(v, 3),
          Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
                                    .default = "Females"),
-         v_cat = case_when(v < 0.5 ~ "Low",
+         v_cat = case_when(v == 0.015 ~ "Very low",
+                           v == 0.038 ~ "Low",
                            .default = "High"))
 
 Z_heatmap <-
@@ -2165,7 +2166,7 @@ Z_heatmap
 
 ## Y
 
-```{r}
+```{r, fig.width=8, fig.height=4}
 data <-
   sim_results %>%
   filter(chromosome == "Y") %>%  
@@ -2178,7 +2179,8 @@ data <-
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
                                    .default = "Females"),
-         v_cat = case_when(v < 0.5 ~ "Low",
+         v_cat = case_when(v == 0.005 ~ "Very low",
+                           v == 0.0125 ~ "Low",
                            .default = "High"))
 
 Y_heatmap <-
@@ -2196,7 +2198,7 @@ Y_heatmap <-
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "Y-linked inbreeding alleles") +
-  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+  facet_wrap(sex_expressed~ v_cat, nrow = 1,
              labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
   scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
@@ -2213,7 +2215,7 @@ Y_heatmap
 
 ## W
 
-```{r}
+```{r, fig.width=8, fig.height=4}
 data <-
   sim_results %>%
   filter(chromosome == "W") %>%  
@@ -2226,7 +2228,8 @@ data <-
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
                                    .default = "Females"),
-         v_cat = case_when(v < 0.5 ~ "Low",
+         v_cat = case_when(v == 0.005 ~ "Very low",
+                           v == 0.0125 ~ "Low",
                            .default = "High"))
 
 W_heatmap <-
@@ -2243,7 +2246,7 @@ W_heatmap <-
        y = "Male refractory period",
        fill = "Fate of _I_ allele",
        title = "W-linked inbreeding alleles") +
-  facet_wrap(sex_expressed~ v_cat, nrow = 2,
+  facet_wrap(sex_expressed~ v_cat, nrow = 1,
              labeller = label_glue('Sex: {`sex_expressed`}\nMale search efficiency: {`v_cat`}')) +
   scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8)) + 
   scale_y_continuous(expand = c(0, 0)) + 
@@ -2260,21 +2263,22 @@ W_heatmap
 
 ## Cytoplasmic
 
-```{r}
+```{r, fig.width=8}
 data <- 
   sim_results %>%
   filter(chromosome == "C") %>%  
   group_by(parameter_space_ID) %>% 
-  slice_tail() %>% 
+  slice_tail() %>%
+  ungroup() %>% 
   mutate(D_prop = D*-1,
          Fate = case_when(population_size < Starting_pop_size*0.1 ~ "Extinction",
                           proportion_I  > 0.5 ~ "Invades",
                           proportion_I  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males",
                                    .default = "Females"),
-         v_cat = case_when(v < 0.5 ~ "Low",
+         v_cat = case_when(v == 0.01 ~ "Very low",
+                           v == 0.025 ~ "Low",
                            .default = "High"))
-
 
 C_heatmap <-
   data %>%
