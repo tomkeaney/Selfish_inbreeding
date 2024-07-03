@@ -56,19 +56,17 @@ library(bench) # individual functions
 
 To model the inclusive fitness gained from an inbred mating, three components that contribute to fitness are required:
 
-1.  The number of offspring produced directly: $n$
+1.  The number of offspring that inherit the focal allele when outcrossing: $\frac{1}{2}n$
 
-2.  The reduction in fitness (number of offspring) due to inbreeding: $-\delta n$
+2.  The reduction in offspring produced due to inbreeding depression: $\delta$
 
-3.  The indirect fitness gain (number of offspring) due to inbreeding: $rn$, where $r$ is the relatedness coefficient
+3.  The indirect fitness gain (number of offspring) due to inbreeding: $\frac{1}{2}rn$, where $r$ is the individual-level relatedness coefficient
 
 Put together, the inclusive fitness from a single inbred mating is:
 
-$$(1 + r)(1 - \delta)n$$
+$$\frac{1}{2}n(1 - \delta) + \frac{1}{2}rn(1 - \delta)$$
 
-while fitness from a single outbred mating is simply $n$.
-
-When $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding.
+, while fitness from a single outbred mating is simply $\frac{1}{2}n$. It follows that when $(1 + r)(1 - \delta)n \gt n$ selection should favour a preference for inbreeding.
 
 Solving the inequality for $\delta$:
 
@@ -92,7 +90,7 @@ inbreeding_equilibria %>%
   ggplot(aes(x = r, y = depression_threshold)) +
   geom_line(linewidth = 0.8) + 
   coord_cartesian(ylim = c(0, 1)) +
-  labs(x = '_r_, the relatedness coefficient',
+  labs(x = '_r_, the individual-level relatedness coefficient',
        y = ~delta~'(inbreeding depression)') +
   scale_x_continuous(expand = c(0, 0.009)) + 
   scale_y_continuous(expand = c(0, 0)) +
@@ -106,23 +104,24 @@ The parameter space above the curve shows where inbreeding avoidance should evol
 
 ## Accounting for sex differences in genetic architecture
 
-As stated above, inclusive fitness in the absence of inbreeding depression is $(1 + r)n$. Here $r$ represents the correlation between genotypes carried by interacting females and males, under the implicit assumption that loci appear equally in both sexes. However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci.
+As stated above, inclusive fitness in the absence of inbreeding depression is $(1 + r)n$. Here, $r$ represents the correlation between genotypes carried by interacting females and males, under the implicit assumption that loci appear equally in both sexes. That is, $r$ is quantified at the level of the individual. However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci. To model relatedness across the genome, we multiply $r$ with a new variable $a$, the probability that a locus present in one sex is also present in the gametes produced by the other.
 
-To delineate differences in the effect of $r$ for different regions of the genome, we multiply $r$ with a new variable $a$, the probability that a locus present in one sex is also present in the gametes produced by the other. Unlike $r$ which is relative to the population mean relatedness, $a$ is expressed as an absolute value ranging from 0 to 1.
-
-The indirect component of fitness accrued by from an inbred mating becomes
-
-$$ran$$
-
-and inclusive fitness from an inbreeding event becomes
-
-$$(1 + ra)(1 - \delta )n$$
-
-Taking an allele found at a diploid autosomal locus as an example, all of the gametes produced by a relative possess this locus, where they could potentially carry alleles identical by descent. In this case $a = 1$ and the indirect component of inclusive fitness is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case $a = 0$. However, as inbreeding depression is a result of homozygosity for deleterious recessive alleles throughout the genome, the costs of inbreeding depression are born by all alleles carried by the individual. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear.
+To get a feel for what this modification does, let's first consider an allele found at a diploid autosomal locus. In this case, all of the gametes produced by a relative possess this locus, where they could potentially carry alleles identical by descent. Here, $a = 1$ and the indirect component of inclusive fitness is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case $a = 0$. However, alleles on these hemizygous chromosomes still suffer the costs of inbreeding depression, which is a result of increased homozygosity for deleterious recessive alleles throughout the genome. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear.
 
 X- or Z-linked loci present an interesting intermediate case, with sex-specific values for $a$. When the inbreeding locus is carried by the sex with homozygous sex chromosomes, $a$ is half that of autosomal loci, whereas it does not depart from the autosomal case when the locus is found within the hemizygous sex. Using loci on the X as an example, those present in a XX female are only found in \~50% of a interacting males gametes, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and $a = 1$.
 
-The X/Z situation is made additionally complex because there is an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity therefore leads to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph. However, frequency dependence might not as relevant as I initially expected, because the inbreeding allele becomes very common quickly within families, even whilst rare across the population (first proposed in Fisher, 1930).
+The X/Z situation appears additionally complex because there may be an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity could therefore lead to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph. However, frequency dependence is not as relevant as I initially expected, because the inbreeding allele becomes very common quickly within families, even whilst rare across the population (first proposed in Fisher, 1930). Thus, let's press on, making the reasonable assumption that homozygotes for the _I_ allele are quite regularly encountered.
+
+The indirect component of fitness accrued from an inbred mating becomes
+
+$$\frac{1}{2}ran(1 - \delta)$$
+
+and inclusive fitness from an inbreeding event is
+
+$$\frac{1}{2}n(1 - \delta) + \frac{1}{2}ran(1 - \delta)$$
+and inbreeding is favoured when
+
+$$(1 + ra)(1 - \delta )n > n$$
 
 **Table 1.** Values of the parameter $a$ for different regions of the genome. $a$ is the one-way probability that a locus carried by one individual is found within the gametes of an opposite sex individual. Note that cytoplasmic chromosomes are assumed to have exclusive maternal inheritance.
 
@@ -143,7 +142,6 @@ tibble(`Prob. that opposite sex gametes carry focal locus` = c(1, 0.5, 0),
 Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture
 
 $$\delta \lt \frac{ra}{1 + ra}$$
-Ignoring frequency dependence for now, we can plot the new slopes produced by varying $r$ and $a$:
 
 ```{r}
 inbreeding_maximum_function_2 <- function(r, a){
@@ -168,7 +166,7 @@ inbreeding_equilibria_2 %>%
   geom_textline(linewidth = 0.8, size = 5) + 
  # scale_colour_manual(values = c("0" = met.brewer("Kandinsky", 4)[1], "0.5" =  met.brewer("Kandinsky", 4)[2], "1" = met.brewer("Kandinsky", 4)[3])) +
   coord_cartesian(ylim = c(0, 1)) +
-  labs(x = '_r_, the relatedness coefficient',
+  labs(x = '_r_, the individual-level relatedness coefficient',
        y = ~delta~'(inbreeding depression)',
        linetype = expression(~italic(a)~', the intersex correlation between loci')) +
   scale_x_continuous(expand = c(0.009, 0)) + 
@@ -179,6 +177,7 @@ inbreeding_equilibria_2 %>%
         axis.title.x = element_markdown())
 ```
 
+Figure XX. curves show the extent of inbreeding depression, expressed as a reduction in offspring produced, at which inbreeding no longer increases inclusive fitness.  
 $~$
 
 ## Differences between the sexes beyond genetic architecture
@@ -187,39 +186,40 @@ Parker's seminal equations:
 
 In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression. The key departure from the unlimited polygyny case presented in the above equations is that a cost to future reproductive success is included for males, i.e. due to finite sperm production, parental care, or harmful mating behaviour such as sexual cannibalism.
 
-For males, Parker found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
+Parker modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunityas 
 
-$$n(1 - \delta) + rn(1- \delta) - cn \gt rn$$
-
-the first term is the direct number of alleles propagated, the second term is the indirect number of alleles propagated (note that this is weighted by relatedness), the third term is the direct number of alleles that were not directly propagated by the male through outcrossing, and the final opposing term is the number of alleles that would've been transmitted had his sister outcrossed (and he forgone mating).
-
-$c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males only contribute cheaply produced sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c ~ 0$.
+$$n(1 - \delta) + rn(1-\delta) - crn \gt n$$
+where the new third term on the lefthand side of the equation is the number of alleles that were not indirectly propagated by her male relative by future outcrossing. $c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males only contribute cheaply produced sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c ~ 0$.
 
 We add the $a$ variable to the equation and letting $n = 1$, simplify to
 
-$$(1-\delta) + ra(1-\delta) - c \gt ra$$
-
-We can again find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy:
-
-$$\delta_{male} = \frac{1 - c}{1 + ra}$$
-
-Parker then modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunity.
-
-$$n(1 - \delta) + rn(1-\delta) - crn \gt n$$
-
-which we can write as
-
 $$(1-\delta) + ra(1-\delta) - rac \gt 1$$
 
-the inbreeding depression threshold is
+where the inbreeding depression threshold is
 
 $$\delta_{female} = \frac{ra - rac}{1 + ra}$$
 
 Note that when $c = 0$, this is equivalent to the $\delta$ threshold found in the single mating case.
 
-Plot the relationship between $r$ and $\delta$ for several values of $c$ and $a$
+For males, Parker found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
 
-```{r, fig.height=8}
+$$n(1 - \delta) + rn(1- \delta) - cn \gt rn$$
+
+once again we add the $a$ variable to the equation and letting $n = 1$, simplify:
+
+$$(1-\delta) + ra(1-\delta) - c \gt ra$$
+
+We can again find the threshold below which mating with a relative returns greater fitness than an inbreeding avoidance strategy:
+
+$$\delta_{male} = \frac{1 - c}{1 + ra}$$
+
+## Plotting sexual and intragenomic conflicts
+
+### When is inbreeding favoured in each sex?
+
+In the figure below, the curves indicate the level of inbreeding depression that can be tolerated for a given value of individual-level relatedness. $a$ represents the probability that a locus present in one sex is also present in the gametes produced by the other. The plot is split into panels by $c$, the cost of mating for males relative to females.
+
+```{r, fig.height=6.5}
 Parker_cost_data <- 
   expand_grid(r = seq(from = 0, to = 1, by = 0.01),
               a = c(0, 0.5, 1),
@@ -230,22 +230,22 @@ Parker_cost_data <-
 
   Parker_cost_data %>% 
   mutate(a = as.factor(a)) %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = a, colour = Sex)) +
-  geom_line(linewidth = 0.9) + 
-  scale_colour_manual(values = c("Female" = met.brewer("Peru1", 6)[2], "Male" =  met.brewer("Peru1", 6)[3])) +
+  ggplot(aes(x = r, y = inbreeding_depression, linetype = a)) +
+  geom_line(linewidth  = 0.8) + 
   coord_cartesian(ylim = c(0, 1)) +
-  labs(y = expression(delta), 
-       x = expression(italic("r")),
+  labs(y = ~delta~'(inbreeding depression)', 
+       x = '_r_, the individual-level relatedness coefficient',
        linetype = expression(italic("a"))) +
-  scale_x_continuous(expand = c(0.009, 0)) + 
+  scale_x_continuous(expand = c(0.009, 0), breaks = c(0, 0.25, 0.5, 0.75)) + 
   scale_y_continuous(expand = c(0.01, 0)) +
-  facet_wrap(~c, nrow = 3, labeller = label_glue('Male mating investment (c): {c}')) +
+  facet_wrap(Sex~c, nrow = 2, labeller = label_glue('Sex: {Sex}\nMale mating cost: {c}')) +
   theme_bw() +
   theme(text = element_text(size = 14),
-        strip.background = element_rect(fill = "Aliceblue", linewidth = .5))
+        strip.background = element_rect(fill = "Aliceblue", linewidth = .5),
+        axis.title.x = element_markdown(),)
 ```
 
-## Plotting sexual and intragenomic conflicts
+### When is there evolutionary conflict over inbreeding?
 
 ```{r}
 resolution <- 200
@@ -272,91 +272,15 @@ analytical_results <-
 ```
 
 
-### When is inbreeding favoured in each sex?
+To quantify conflict in its various forms we use a version of the _I_ index presented in [Innocenti and Morrow (2010)](https://academic.oup.com/evolut/article/64/9/2775/6854370):
 
-In the figure below, the dashed lines indicate the level of inbreeding depression that can be tolerated for a given value of $r$. The plot is split into panels by $c$, the cost of mating for males relative to females and $a$, the probability that a locus present in one sex is also present in the gametes produced by the other.
+$$I = \frac{s_m s_f}{\sqrt{\frac{{s_m}^2 + {s_f}^2}{2}}}$$
+where $s_m$ and $s_f$ are the selection coefficients that we calculate for inbreeding alleles in males and females respectively. I is most extreme when selection is strong in both sexes, positive when selection is sexually concordant and negative when selective acts sexually antagonistically. 
 
-```{r, fig.height=10, fig.width=10}
-pal1 <- met.brewer("OKeeffe1", n=100, direction = -1)
-pal2 <- met.brewer("Hiroshige", n=50, direction = -1)
-#pal2 <- moma.colors("Avedon", n = 50, direction = 1)
+```{r}
 
 oranges <- c("#ffe6b7", "#ffd06f", "#f7aa58", "#ef8a47", "#e76254") 
 
-blues <- c("#aadce0", "#72bcd5", "#528fad", "#376795", "#1e466e")
-
-# Lowest colour for all gradients
-gradient_base <- oranges[1]
-
-gradient_max <- oranges[5]
-
-# Create a list of gradients for each colour 2 to 10 over five steps from 
-# gradient_base grey (low) to colour (high)
-my_gradient <- colorRampPalette(c(gradient_base, gradient_max))(50)
-  
-Female_plot <-
-  analytical_results %>%
-  filter(c == 0 | c == 0.5) %>% 
-  ggplot(aes(x = r, y = D)) +
-  geom_blank() +
-  geom_raster(aes(fill = female_fitness_contrast)) + 
-  stat_contour(aes(z = female_fitness_contrast), colour = "black", binwidth = 0.25,
-               breaks = c(-1.25, -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.25)) +
-  stat_contour(aes(z = female_fitness_contrast), colour = "black", breaks = 0,
-               linetype = 2) +
-  scale_fill_gradientn(colours = pal1, breaks = c(-2, -1, 0, 1, 2), limits = c(-2, 2)) +
-  facet_wrap(c ~ a, 
-             scales = "free", nrow = 2, strip.position = c("top"),
-             labeller = label_glue('Prob. related gamete carries inbreeding locus = {`a`}\nMale mating cost = {`c`}')) +
-  labs(x = '_r_, the relatedness coefficient',
-       y = ~delta~'(inbreeding depression)',
-       fill = "Inbreeding fitness",
-       title = "A. Alleles present in females") +
-  scale_x_continuous(expand = c(0, 0)) + 
-  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
-  theme(panel.border = element_rect(fill = NA, colour = "black", linewidth = .8),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
-        strip.text = element_text(size = 7),
-        axis.title.x = element_markdown(),
-        plot.title = element_text(hjust = 0.5))
-
-
-Male_plot <-
-  analytical_results %>%
-  filter(c == 0 | c == 0.5) %>% 
-  ggplot(aes(x = r, y = D)) +
-  geom_blank() +
-  geom_raster(aes(fill = male_fitness_contrast)) + 
-  stat_contour(aes(z = male_fitness_contrast), colour = "black", binwidth = 0.25,
-              breaks = c(-1.25, -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.25)) +
-  stat_contour(aes(z = male_fitness_contrast), colour = "black", breaks = 0,
-               linetype = 2) +
-   scale_fill_gradientn(colours = pal1, breaks = c(-2, -1, 0, 1, 2), limits = c(-2, 2)) +
-   facet_wrap(c ~ a, 
-             scales = "free", nrow = 2, strip.position = c("top"),
-             labeller = label_glue('Prob. related gamete carries inbreeding locus = {`a`}\nMale mating cost = {`c`}')) +
-  labs(x = '_r_, the relatedness coefficient',
-       y = ~delta~'(inbreeding depression)',
-       fill = "Inbreeding fitness",
-       title = "B. Alleles present in males") +
-  scale_x_continuous(expand = c(0, 0)) + 
-  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
-  theme(panel.border = element_rect(fill = NA, colour = "black", linewidth = .8),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
-        strip.text = element_text(size = 7),
-        axis.title.x = element_markdown(),
-        plot.title = element_text(hjust = 0.5))
-
-Female_plot / Male_plot + plot_layout(guides = "collect")
-  
-
-```
-
-### When is there evolutionary conflict over inbreeding?
-
-To quantify conflict in its various forms we use a version of the _I_ index presented in [Innocenti and Morrow (2010)](https://academic.oup.com/evolut/article/64/9/2775/6854370).
-
-```{r}
 Intragenomic_conflict_females <-
   analytical_results %>%
   select(1:4, female_fitness_contrast) %>%
@@ -440,23 +364,23 @@ make_genomic_conflict_plot <-
                 aes(fill = relationship), alpha = 0.75) +
       scale_fill_manual(values = c("#fbe6c5", "#d2fbd4"), 
                         labels = c("Inbreeding deleterious\nin both contexts", 
-                               "Inbreeding favoured\nin both contexts")) +
+                                   "Inbreeding favoured\nin both contexts")) +
       stat_contour(aes(z = Evolutionary_conflict*-1), colour = "black", binwidth = 25,
                    breaks = c(0, 0.2, 0.4, 0.6)) +
       facet_wrap(~contrast, nrow = 3,
                  scales = "free", strip.position = c("top"),
                  labeller = label_glue('{`contrast`}')) +
-      labs(x = '_r_ (relatedness coefficient)',
-           y = ~delta~'(inbreeding depression)',
+      labs(x = "Individual-level relatedness coefficient",
+           y = "Inbreeding depression",
            fill = "Evolutionary concordance",
            title = enter_title) +
-      scale_x_continuous(expand = c(0, 0)) + 
+      scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.25, 0.5, 0.75)) + 
       scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
       theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
             panel.grid.minor = element_blank(),
             strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
             axis.title.x = element_markdown(),
-            plot.title = element_text(hjust = 0.5, size = 7))
+            plot.title = element_text(hjust = 0.5, size = 8))
   }
 
 icf <- make_genomic_conflict_plot(Intragenomic_conflict_females, "A. Female inter-chromosomal conflict", oranges)
@@ -535,10 +459,7 @@ Sexual_conflict_plot <-
   geom_blank() +
   geom_tile(data = plotting_data %>% filter(relationship == "Sexual conflict"),
             aes(fill = Evolutionary_conflict*-1)) + 
-  #scale_fill_gradientn(colours = pal2, limits = c(-1.2, 1.1), #na.value = "white",
-  #                    labels = c("Strong conflict, female (+)", -0.5, 
-  #                              "No conflict", 0.5, "Strong conflict, male (+)")) +
-  scale_fill_gradientn(colours = oranges, limits = c(0, 0.6), #na.value = "white",
+  scale_fill_gradientn(colours = oranges, limits = c(0, 0.6),
                        breaks = c(0, 0.6),
                        labels = c("Weaker conflict", "Stronger conflict")) +
   labs(fill = "Evolutionary conflict") +
@@ -553,25 +474,25 @@ Sexual_conflict_plot <-
   facet_wrap(~Location, nrow = 3,
              scales = "free", strip.position = c("top"),
              labeller = label_glue('{`Location`}')) +
-  labs(x = '_r_ (relatedness coefficient)',
-       y = ~delta~'(inbreeding depression)',
+      labs(x = "Individual-level relatedness coefficient",
+           y = "Inbreeding depression",
        fill = "Evolutionary concordance",
        title = "C. Intra-chromosomal sexual conflict") +
-  scale_x_continuous(expand = c(0, 0)) + 
-  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.25, 0.5, 0.75)) + 
+  scale_y_continuous(expand = c(0, 0)) +
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
         axis.title.x = element_markdown(),
-        plot.title = element_text(hjust = 0.5, size = 7))
+        plot.title = element_text(hjust = 0.5, size = 8))
 ```
 
 ## Make Figure 1
 
-```{r, fig.height=7, fig.width=9}
-icf + icm + Sexual_conflict_plot + plot_layout(guides = "collect")
+```{r, fig.height=7, fig.width=10}
+icf + icm + Sexual_conflict_plot + plot_layout(guides = "collect", axes = "collect")
 ```
 
-Panels in columns A and B show the parameter space where inbreeding increases the propagation of one type of chromosome, but has an opposite, deleterious affect on the propagation of a second chromosome class - so called inter-chromosomal conflict. 
+**Figure XX**. Panels in columns A and B show the parameter space where inbreeding increases the propagation of one type of chromosome, but has an opposite, deleterious affect on the propagation of a second chromosome class - so called inter-chromosomal conflict. Panels in column C show the conditions where loci are expected to be under intra-chromosomal sexual conflict over inbreeding preference.
 
 Column A shows regions of inter-chromosomal conflict within females, where chromosome classes with a high probability of encountering gametes carrying the inbreeding locus have high fitness in the conflict zone. In females, autosomal and Z chromosomes are aligned in the fitness outcomes of inbreeding; these cases reflect the implicit assumptions of previous models exploring the inclusive fitness effects of inbreeding. In some cases, the fitness interests of chromosome classes align e.g. autosomes and Z chromosomes (this is only true for females). 
 
@@ -581,7 +502,7 @@ Panels in column C show where loci are expected to be under intra-chromosomal se
 
 ## Make Figure 2
 
-We can also plot the cost to female direct reproductive output, 
+We can also plot the cost to female direct reproductive output:
 
 ```{r}
 
@@ -630,37 +551,37 @@ fitness_loss_f_delta + fitness_loss_m_delta +
   plot_layout(axis_titles = "collect")
 
 ```
-**Figure 2**. direct female reproductive output at the threshold where chromosome-specific selection should no longer favour inbreeding. Reproductive output is expressed relative to females that exclusively outcross.    
-
+**Figure 2**. direct female reproductive output for inbreeding females at the threshold where chromosome-specific selection should no longer favour inbreeding. Reproductive output is expressed relative to females that exclusively outcross. Cytoplasmic chromosomes are included here to illustrate that the inclusive fitness of alleles on these chromosomes are absolutely aligned with individual level direct female fitness.    
 
 # The simulation
 
 Parker's $c$ value offers a simple, intuitive way to model the cost of mating for males relative to females. However, other methods better capture the dynamics of real populations, where both sexes also run the risk of going unmated. To incorporate both costs of mating and matelessness, we simulate the invasion of an allele that encodes a preference for inbreeding, for loci on various chromosomes that are expressed in either females or males.
 
-The simulation progresses through time by jumping from event to event. Events are calculated via a gillespie-like algorithm, which involves both memory-less processes and others that are maintained through time. Events can trigger state changes for the individuals in the population, leading to death, mating, inheritance of a breeding site or offspring production. The simulation ends when the inbreeding allele is purged from the population, it reaches a high frequency in the population, the population goes extinct, or the time limit elapses.
+The simulation progresses continuously through time by jumping from event to event. Events are calculated via a gillespie-like algorithm, which involves both memory-less processes and others that are maintained through time. Events can trigger state changes for the individuals in the population, leading to death, mating, inheritance of a breeding site or offspring production. We simulate a population where monandrous females have the opportunity to mate with a relative early in life, and whether they do so depends on their genotype at the inbreeding locus _or_ the genotype of their male relative. The simulation ends when the inbreeding allele is purged from the population, it reaches a high frequency in the population, the population goes extinct, or the time limit elapses.
 
-Following Ekrem and Kokko (2023), we find the lifespans of `N` diploid individuals in a sexually reproducing population to initialise the simulation. Mortality events are drawn from an exponential distribution with rate $\lambda = 1/\mu$, where $\mu$ is the mean time till death. The probability of mortality is therefore constant across life for each sex. 
+Following Ekrem and Kokko (2023), mortality events are drawn from an exponential distribution with rate $\lambda = 1/\mu$, where $\mu$ is the mean time till death. The probability of mortality is therefore constant across life for each sex. 
 
 Lets have a look at the mean lifespan drawn from the exponential distribution parameterised with different mortality rates:
 
 ```{r}
 #exponential_draws <-
   tibble(`Mean lifespan` = seq(from = 0.001, to = 1.001, by = 0.1)) %>% 
-  mutate(`Corresponding mortality rate` = 1/`Mean lifespan`) %>% 
+  mutate(`Corresponding mortality rate` = round(1/`Mean lifespan`, 1),
+         `Mean lifespan` = round(`Mean lifespan`, 3)) %>% 
   arrange(-`Mean lifespan`) %>% 
   pander()
 ```
 
-We use these values to inform our parameterisation of inbreeding depression ($\delta$). Individuals that don't inbreed produce offspring with a mean lifespan of 1 time unit ($\lambda = 1$). For inbred offspring, we model inbreeding depression by increasing the risk of mortality ($\lambda > 1$), lowering the mean lifespan of inbred individuals relative to their outbred counterparts.
+We use these values to inform our parameterisation of inbreeding depression ($\delta$). Females that outcross produce offspring with a mean lifespan of 1 time unit ($\lambda = 1$). For inbred offspring, we model inbreeding depression by increasing the risk of mortality ($\lambda = 1 + \delta$), lowering the mean lifespan of inbred individuals relative to their outbred counterparts.
 
-Each individual possesses an inbreeding locus with two possible alleles. The `A_O` allele encodes inbreeding avoidance, whereas the `A_I` allele encodes inbreeding preference. The `number_mutants` argument allows us to set the number of mutations that the population is originally seeded with.
+Female-male encounters are found using the mass action law (also called fertilisation kinetics in this biological context), with male search efficiency $v$. Crucially, a female's first encounter with a receptive male is always with a brother (if they exist). While this may seem somewhat artificial, it allows us to test whether alleles coding for inbreeding are favoured by selection, and is an assumption grounded in biological reality as individuals often live as juveniles with close kin before dispersing and mixing with the larger population.   
 
-Female-male encounters are found using the mass action law (also called fertilisation kinetics in this biological context), with male search efficiency $v$. To get an idea of how $v$ influences mating encounters, we plot the population wide male-female encounter timestamps. The dashed line shows the mean lifespan of outbred individuals in our simulations. Note that these are just encounters; whether they lead to mating depends upon past mating experiences of both females and males.
+To get an idea of how $v$ influences mating encounters, we plot the mean proportion of the opposite-sex part of the population that an individual male meets across his entire life. 
 
 ```{r}
 
 data <-
-  expand_grid(v = c(0.05, 0.5, 2, 5),
+  expand_grid(v = c(0.02, 0.05, 2, 5),
               lifespan = c(0.01, 0.1, 0.5, 1),
          pop_size = rep(100, 10000)) %>% 
   mutate(encounter = rexp(160000, rate = v)) %>% 
@@ -691,11 +612,11 @@ data  %>%
 
 **Figure. SX**: the proportion of the female population encountered by a single male across his lifetime, split by how efficiently males search for females. If there are 100 females in the population, a value of 0.1 indicates the male encounters 10 females on average. The decline in potential mating encounters as lifespan decreases indicates the severity of the inbreeding depression cost for males.  
 
-The cost of inbreeding depression manifests differently for females, where the ability to reproduce depends on mating with a male and securing a breeding site. If the population is at carrying capacity, the latter criterion is a function of age, as breeding sites are allocated randomly to non-breeding females once a breeder dies. Therefore, the longer a female lives, the more chances she has of becoming a breeder. If the population is below carrying capacity, the cost of inbreeding is less severe, as a new female can immediately secure a breeding site, leaving mating as the only restriction to offspring production.  
+The cost of inbreeding depression manifests differently for females, where the ability to reproduce depends on mating with a male and securing a breeding site. If the population is at carrying capacity, the latter criterion is a function of age, as breeding sites are allocated randomly to non-breeding females once a breeder dies. Therefore, the longer a female lives, the more opportunities she has of becoming a breeder. If the population is below carrying capacity, the cost of inbreeding is less severe, as a new female can immediately secure a breeding site, leaving mating as the only restriction to offspring production.  
 
 ## Build a mating table
 
-To simulate the invasion of alleles found on different chromosomes, we consider simple single-locus, two-allele dynamics. For each chromosomal inheritance system, we build a mating table, which tracks the production of new genotypes from each possible mother-father pair of genotypes in the population. Inheritance is mendelian, except for cytoplamsic chromosomes, which are exclusively maternally inherited.
+To simulate the invasion of alleles found on different chromosomes, we consider simple single-locus, two-allele dynamics. For each chromosomal inheritance system, we build a mating table, which tracks the production of new genotypes from each possible mother-father pair of genotypes in the population. Inheritance is mendelian, except for cytoplasmic chromosomes, which are exclusively maternally inherited.
 
 The simulation tracks the invasion of an allele encoding a preference for inbreeding (denoted _I_), into a population initially dominated by an allele that encodes inbreeding avoidance (denoted _O_ for outbreeding).
 
@@ -1508,9 +1429,11 @@ prop_i_table %>%
 
 ## Define the parameter space
 
-The effect of the relatedness coefficient on the fitness of an inbreeding allele when there is non-zero inbreeding depression is well described. Therefore, we choose to set $r = 0.5$ for all inbreeding events and instead focus on the effect of varying 1) $v$, 2) $\delta$, 3) the male cost to mating, here coded as a refractory period following mating, and 4) the chromosome upon which the the allele is found. 
+The effect of the individual-level relatedness coefficient on the propagation of an inbreeding allele when there is non-zero inbreeding depression is well described. Therefore, we choose to set $r = 0.5$ for all inbreeding events and instead focus on the effect of varying 1) $v$, 2) $\delta$, 3) the male cost to mating, here coded as a refractory period following mating, and 4) the chromosome upon which the the allele is found. 
 
 Populations also differ in the number of breeding females they can support, in order to standardise the number of chromosomes carrying the focal locus. For example, when the inbreeding locus is found on an autosome, a population of 200 individuals harbours 400 copies of the inbreeding locus. If the allele is instead found on a cytoplasmic chromosome (and we assume no heteroplasmy), each individual only carries one copy of the locus and a population size of 400 individuals is needed to equalise the population size of chromosomes. $v$ is adjusted in accordance with the individual population size, so as to ensure that males meet the same number of individuals on average across simulation runs - this is akin to keeping the population density constant between simulation runs. 
+
+The population is seeded with a small number of inbreeding alleles, equal to number of offspring produced by a single female. Where the chromosome system allows, the inbreeding mutation is initially found within a single family, as would be the case if a single mutation appeared in the previous generation and was passed on to that individuals progeny. Where chromosomes are only carried by individuals of one sex, the mutation is spread across the minimum number of families to match the number of mutations in all other simulations i.e. if the inbreeding allele is Y-linked and only one individual in the family is male, then only this male is mutated. Males from a second family are then mutated and the process re-iterated until the required number of mutations are present.   
 
 ```{r}
 resolution <- 30
@@ -1697,6 +1620,7 @@ A_allele_tracking <-
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
 
 A_pop_tracking <-
@@ -1722,6 +1646,7 @@ A_pop_tracking <-
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
         
 A_pop_tracking / A_allele_tracking
@@ -1751,7 +1676,7 @@ X_allele_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
 
 X_pop_tracking <-
@@ -1775,7 +1700,7 @@ X_pop_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
         
 X_pop_tracking/X_allele_tracking
@@ -1806,7 +1731,7 @@ Z_allele_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
 
 Z_pop_tracking <-
@@ -1831,7 +1756,7 @@ Z_pop_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
         
 Z_pop_tracking /Z_allele_tracking
@@ -1861,7 +1786,7 @@ Y_allele_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
 
 Y_pop_tracking <-
@@ -1885,7 +1810,7 @@ Y_pop_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
         
 Y_pop_tracking/Y_allele_tracking
@@ -1915,7 +1840,7 @@ W_allele_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
 
 W_pop_tracking <-
@@ -1939,7 +1864,7 @@ W_pop_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
         
 W_pop_tracking/W_allele_tracking
@@ -1969,7 +1894,7 @@ C_allele_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
 
 C_pop_tracking <-
@@ -1993,7 +1918,8 @@ C_pop_tracking <-
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.title.y = element_markdown(),
-        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),         
+        strip.text = element_text(size = 9),
         axis.text = element_text(size = 12))
         
 C_pop_tracking/C_allele_tracking
@@ -2166,7 +2092,7 @@ Z_heatmap
 
 ## Y
 
-```{r, fig.width=8, fig.height=4}
+```{r, fig.width=8, fig.height=3}
 data <-
   sim_results %>%
   filter(chromosome == "Y") %>%  
@@ -2215,7 +2141,7 @@ Y_heatmap
 
 ## W
 
-```{r, fig.width=8, fig.height=4}
+```{r, fig.width=8, fig.height=3}
 data <-
   sim_results %>%
   filter(chromosome == "W") %>%  
