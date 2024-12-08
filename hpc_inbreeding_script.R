@@ -1,10 +1,51 @@
+#!/usr/bin/env Rscript
 
-
-library(tidyverse) # for tidy style coding and plotting
+library(tidyverse)  # for tidy style coding and plotting
 library(data.table) # for efficient handling of large dataframes
+library(optparse)   # to create a command line interface
+library(foreach)    # for parallelizing internal code
+library(doParallel)
+library(sys)        # to infer the number of CPUS in a job context
 #library(Rmpi) # for parallel computing on a hpc
-library(snow) # complements the Rmpi package for hpc computing
-cl <- makeCluster(64, type="SOCK")
+
+library(compiler)   # to enable just in time compilation
+####################################################################
+
+# default output directory
+default.out = paste("/lustre/project/", Sys.getenv("SLURM_JOB_ACCOUNT"), "/",
+                    sep="", collapse=NULL)
+# default number
+default.number <- -1
+
+# option parser, add more options with
+# make_option(c("-s", "--long", action="store", ...),
+# do not forget the comma! every new option requires a comma before it.
+option_list <- list(
+    make_option(c("-o", "--outdir"), action="store",
+                default=default.out),
+    make_option(c("-n", "--number"),
+                help="Number of parameters to screen",
+                metavar="parameters_autosome",
+                action="store",
+                default=default.number)
+    )
+
+args <- parse_args(OptionParser(option_list=option_list))
+# options are available as 'args$long_option_name', e.g. 'args$outdir'
+
+SLURM_cores <- Sys.getenv("SLURM_JOB_CPUS_PER_NODE")
+# in case we are not in a SLURM job context we can run
+# this code on any other machine:
+if (SLURM_cores == '') {
+    nbcores <- dectedCores() - 1 ## to be amended
+} else {
+    nbcores <- SLURM_cores
+}
+
+
+## now we will turn on the JIT to boost our calculation
+# outcomment for testing purposes
+enableJIT(1)
 
 # mendelian genetics function for reproduction
 
@@ -254,7 +295,6 @@ continuous_time_simulation <- function(row,
                                        inheritance_scheme){
   library(data.table) # note that we must load these packages within the function for HPC to work
   library(tidyverse)
-  print(paste("Doing row", row)) # this tells you which row in the parameter space is being modelled
   
   # prop_i_table <- data.table(time = numeric(), 
   #                           proportion_I = numeric(),
@@ -674,7 +714,9 @@ continuous_time_simulation <- function(row,
               number_mutants, baseline_mean_lifespan, N, time_end)) %>% 
     as.data.frame()
   
-  write_csv(results, paste("/lustre/miifs01/project/m2_jgu-tee/tk_output/sim_results_", row, ".csv", sep = ""))
+  #write_csv(results, paste("/lustre/miifs01/project/m2_jgu-tee/tk_output/sim_results_", row, ".csv", sep = ""))
+  write_csv(results, paste(args$outdir, "/sim_results_complete_", row, ".csv",
+                             sep=""))
   # population,
   #prop_i_table)
   
@@ -741,7 +783,11 @@ parameters <-
          time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
          parameter_space_ID = row_number())
 
-parameters_autosome <- parameters %>% filter(chromosome == "A")
+if (args$number != -1 ) {
+    parameters_autosome <- args$number
+} else {
+    parameters_autosome <- nrows(parameters %>% filter(chromosome == "A"))
+}
 
 # this is the part we need to run in parallel
 
@@ -751,14 +797,22 @@ parameters_autosome <- parameters %>% filter(chromosome == "A")
 
 # here's the snow version of the function, note that the cl argument is a cluster object that I haven't specified yet
 
-results <- clusterApply(cl, 1:nrow(parameters_autosome), continuous_time_simulation,
-                        parameters = parameters_autosome, 
-                        offspring_genotypes_autosome)
+results <- mclapply(1:parameters_autosome,
+                    continuous_time_simulation,
+                    parameters = parameters_autosome, 
+                    offspring_genotype_autosome,
+                    mc.cores = nbcores)
+
+#results <- clusterApply(cl, 1:nrow(parameters_autosome), continuous_time_simulation,
+#                        parameters = parameters_autosome, 
+#                        offspring_genotypes_autosome)
 
 all_results <- do.call(rbind, results)
 
 
-write_csv(all_results, "/lustre/miifs01/project/m2_jgu-tee/tk_output/sim_results_complete.csv")
+#write_csv(all_results, "/lustre/miifs01/project/m2_jgu-tee/tk_output/sim_results_complete.csv")
+write_csv(all_results, paste(args$outdir, "/sim_results_complete.csv",
+                             sep=""))
 
 
 
