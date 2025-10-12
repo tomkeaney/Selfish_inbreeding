@@ -3,7 +3,7 @@ project:
   output-dir: docs
 
 website:
-  title: "A gene's eye view to inbreeding"
+  title: "The evolutionary conflicts of inbreeding"
   navbar:
     left:
       - href: notes.qmd

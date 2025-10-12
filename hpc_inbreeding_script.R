@@ -1,181 +1,51 @@
+#!/usr/bin/env Rscript
+options(echo=TRUE) # if you want see commands in output file
+# Expect command line args at the end.
+args = commandArgs(trailingOnly = TRUE)
+# Skip args[1] to prevent getting --args
 
+params<-read.table(args[2])
+row_number= as.numeric(args[3])
+print(row_number)
+print(params[row_number,])
 
-library(tidyverse) # for tidy style coding and plotting
-library(data.table) # for efficient handling of large dataframes
-#library(Rmpi) # for parallel computing on a hpc
-library(snow) # complements the Rmpi package for hpc computing
-cl <- makeCluster(64, type="SOCK")
+library(dplyr)
 
-# mendelian genetics function for reproduction
+sample_vec <- function(x, ...) x[sample(length(x), ...)] 
 
 make_mating_table <- function(gene_location){
   
-  make_offspring <- function(X, Y, type, zygote_freq, gene_location){
-    tibble(Female_genotype = X,
-           Male_genotype = Y,
-           type,
-           zygote_freq,
-           locus_type = gene_location)
+  make_offspring <- function(X, Y, offspring_genotype, zygote_freq, sex){
+    data.frame(Female_genotype = X,
+               Male_genotype = Y,
+               offspring_genotype,
+               zygote_freq,
+               sex)
   }
   
-  # Specify the possible offspring genotypes for all the potential crosses; we use these for the type argument in the make_offspring function
-  
-  # autosomal
-  
-  # II x II
-  
-  a_genotype_1 <- c("A_IA_I.Female", "A_IA_I.Male")
-  
-  # II x IO
-  
-  a_genotype_2 <- c("A_IA_I.Female", "A_IA_I.Male", 
-                    "A_IA_O.Female", "A_IA_O.Male")
-  
-  # II x OO
-  
-  a_genotype_3 <- c("A_IA_O.Female", "A_IA_O.Male")
-  
-  # IO x IO
-  
-  a_genotype_4 <- c("A_IA_I.Female", "A_IA_I.Male", 
-                    "A_IA_O.Female", "A_IA_O.Male", 
-                    "A_OA_O.Female", "A_OA_O.Male")
-  
-  # IO x OO
-  
-  a_genotype_5 <- c("A_IA_O.Female", "A_IA_O.Male",
-                    "A_OA_O.Female", "A_OA_O.Male")
-  
-  # OO x OO
-  
-  a_genotype_6 <- c("A_OA_O.Female", "A_OA_O.Male")
-  
-  # XY
-  
-  
-  # II x IY_I
-  
-  xy_genotype_1 <- c("X_IX_I.Female", "X_IY_I.Male")
-  
-  # II x IY_O
-  
-  xy_genotype_2 <- c("X_IX_I.Female", "X_IY_O.Male")
-  
-  # II x OY_I
-  
-  xy_genotype_3 <- c("X_IX_O.Female", "X_IY_I.Male")
-  
-  # II x OY_O
-  
-  xy_genotype_4 <- c("X_IX_O.Female", "X_IY_O.Male")
-  
-  # IO x IY_I
-  
-  xy_genotype_5 <- c("X_IX_I.Female", "X_IY_I.Male",
-                     "X_IX_O.Female", "X_OY_I.Male")
-  
-  # IO x IY_O
-  
-  xy_genotype_6 <- c("X_IX_I.Female", "X_IY_O.Male", 
-                     "X_IX_O.Female", "X_OY_O.Male")
-  
-  # IO x OY_I
-  
-  xy_genotype_7 <- c("X_IX_O.Female", "X_IY_I.Male",
-                     "X_OX_O.Female", "X_OY_I.Male")
-  
-  # IO x OY_O
-  
-  xy_genotype_8 <- c("X_IX_O.Female", "X_IY_O.Male",
-                     "X_OX_O.Female", "X_OY_O.Male")
-  
-  # OO x IY_I
-  
-  xy_genotype_9 <- c("X_IX_O.Female", "X_OY_I.Male")
-  
-  # OO x IY_O
-  
-  xy_genotype_10 <- c("X_IX_O.Female", "X_OY_O.Male")
-  
-  # OO x OY_I
-  
-  xy_genotype_11 <- c("X_OX_O.Female", "X_OY_I.Male")
-  
-  # OO x OY_O
-  
-  xy_genotype_12 <- c("X_OX_O.Female", "X_OY_O.Male")
-  
-  # ZW
-  
-  # IW_I x II
-  
-  zw_genotype_1 <- c("Z_IZ_I.Male", "Z_IW_I.Female")
-  
-  # IW_I x IO
-  
-  zw_genotype_2 <- c("Z_IZ_I.Male", "Z_IZ_O.Male", 
-                     "Z_IW_I.Female", "Z_OW_I.Male")
-  
-  # IW_I x OO
-  
-  zw_genotype_3 <- c("Z_IZ_O.Male", "Z_OW_I.Female")
-  
-  # IW_O x II
-  
-  zw_genotype_4 <- c("Z_IZ_I.Male", "Z_IW_O.Female")
-  
-  # IW_O x IO
-  
-  zw_genotype_5 <- c("Z_IZ_I.Male", "Z_IZ_O.Male",
-                     "Z_IW_O.Female", "Z_OW_O.Female")
-  
-  # IW_O x OO
-  
-  zw_genotype_6 <- c("Z_IZ_O.Male", "Z_OW_O.Female")
-  
-  # OW_I X II
-  
-  zw_genotype_7 <- c("Z_IZ_O.Male", "Z_IW_I.Female")
-  
-  # OW_I x IO
-  
-  zw_genotype_8 <- c("Z_IZ_O.Male", "Z_OZ_O.Male",
-                     "Z_IW_I.Female", "Z_OW_I.Female")
-  
-  # OW_I x OO
-  
-  zw_genotype_9 <- c("Z_OZ_O.Male", "Z_OW_I.Female")
-  
-  # OW_O X II
-  
-  zw_genotype_10 <- c("Z_IZ_O.Male", "Z_IW_O.Female")
-  
-  # OW_O x IO
-  
-  zw_genotype_11 <- c("Z_IZ_O.Male", "Z_OZ_O.Male",
-                      "Z_IW_O.Female", "Z_OW_O.Female")
-  
-  # OW_O x OO
-  
-  zw_genotype_12 <- c("Z_OZ_O.Male", "Z_OW_O.Female")
-  
-  # cytoplasmic
-  
-  # I x I
-  # I x O
-  
-  c_genotype_1 <- c("C_I.Female", "C_I.Male")
-  
-  # O x O
-  # O x I
-  
-  c_genotype_2 <- c("C_O.Female", "C_O.Male")
-  
-  
-  
-  # Now calculate the zygote frequencies for each cross
-  
-  # autosomal
+  # Specify the possible offspring genotypes for all the potential crosses; we use these for the offspring_genotype argument in the make_offspring function
+  
+  # offspring genotypes
+  
+  offspring_genotypes_1 <- c(2,2)
+  offspring_genotypes_2 <- c(1, 1, 2, 2)
+  offspring_genotypes_3 <- c(1, 1)
+  offspring_genotypes_4 <- c(0, 0, 1, 1, 2, 2)
+  offspring_genotypes_5 <- c(0, 0, 1, 1)
+  offspring_genotypes_6 <- c(0, 0)
+  
+  offspring_genotypes_7 <- c(1, 2)
+  offspring_genotypes_8 <- c(0, 1, 1, 2)
+  offspring_genotypes_9 <- c(0, 1)
+  offspring_genotypes_10 <- c(1, 0) # this is diff from above bc of the order with the sexes
+  offspring_genotypes_11 <- c(2, 1)
+  offspring_genotypes_12 <- c(2,1,1,0)
+  
+  # offspring sex
+  
+  offspring_sex_2 <- c(0, 1)
+  offspring_sex_4 <- c(0, 1, 0, 1)
+  offspring_sex_6 <- c(0, 1, 0, 1, 0, 1)
   
   # even frequency of two offspring genotypes
   
@@ -191,574 +61,645 @@ make_mating_table <- function(gene_location){
               0.25, 0.25,
               0.125, 0.125)
   
-  bind_rows(
-    list(
-      make_offspring("A_IA_I", "A_IA_I", a_genotype_1, freq_2, "autosomal"),
-      make_offspring("A_IA_I", "A_IA_O", a_genotype_2, freq_4, "autosomal"),
-      make_offspring("A_IA_I", "A_OA_O", a_genotype_3, freq_2, "autosomal"),
-      make_offspring("A_IA_O", "A_IA_I", a_genotype_2, freq_4, "autosomal"),
-      make_offspring("A_IA_O", "A_IA_O", a_genotype_4, freq_6, "autosomal"),
-      make_offspring("A_IA_O", "A_OA_O", a_genotype_5, freq_4, "autosomal"),
-      make_offspring("A_OA_O", "A_IA_I", a_genotype_3, freq_2, "autosomal"),
-      make_offspring("A_OA_O", "A_IA_O", a_genotype_5, freq_4, "autosomal"),
-      make_offspring("A_OA_O", "A_OA_O", a_genotype_6, freq_2, "autosomal"),
-      
-      make_offspring("X_IX_I", "X_IY_I", xy_genotype_1, freq_2, "XY"),
-      make_offspring("X_IX_I", "X_IY_O", xy_genotype_2, freq_2, "XY"),
-      make_offspring("X_IX_I", "X_OY_I", xy_genotype_3, freq_2, "XY"),
-      make_offspring("X_IX_I", "X_OY_O", xy_genotype_4, freq_2, "XY"),
-      make_offspring("X_IX_O", "X_IY_I", xy_genotype_5, freq_4, "XY"),
-      make_offspring("X_IX_O", "X_IY_O", xy_genotype_6, freq_4, "XY"),
-      make_offspring("X_IX_O", "X_OY_I", xy_genotype_7, freq_4, "XY"),
-      make_offspring("X_IX_O", "X_OY_O", xy_genotype_8, freq_4, "XY"),
-      make_offspring("X_OX_O", "X_IY_I", xy_genotype_9, freq_2, "XY"),
-      make_offspring("X_OX_O", "X_IY_O", xy_genotype_10, freq_2, "XY"),
-      make_offspring("X_OX_O", "X_OY_I", xy_genotype_11, freq_2, "XY"),
-      make_offspring("X_OX_O", "X_OY_O", xy_genotype_12, freq_2, "XY"),
-      
-      make_offspring("Z_IW_I", "Z_IZ_I", zw_genotype_1, freq_2, "ZW"),
-      make_offspring("Z_IW_I", "Z_IZ_O", zw_genotype_2, freq_4, "ZW"),
-      make_offspring("Z_IW_I", "Z_OZ_O", zw_genotype_3, freq_2, "ZW"),
-      make_offspring("Z_IW_O", "Z_IZ_I", zw_genotype_4, freq_2, "ZW"),
-      make_offspring("Z_IW_O", "Z_IZ_O", zw_genotype_5, freq_4, "ZW"),
-      make_offspring("Z_IW_O", "Z_OZ_O", zw_genotype_6, freq_2, "ZW"),
-      make_offspring("Z_OW_I", "Z_IZ_I", zw_genotype_7, freq_2, "ZW"),
-      make_offspring("Z_OW_I", "Z_IZ_O", zw_genotype_8, freq_4, "ZW"),
-      make_offspring("Z_OW_I", "Z_OZ_O", zw_genotype_9, freq_2, "ZW"),
-      make_offspring("Z_OW_O", "Z_IZ_I", zw_genotype_10, freq_2, "ZW"),
-      make_offspring("Z_OW_O", "Z_IZ_O", zw_genotype_11, freq_4, "ZW"),
-      make_offspring("Z_OW_O", "Z_OZ_O", zw_genotype_12, freq_2, "ZW"),
-      
-      make_offspring("C_I", "C_I", c_genotype_1, freq_2, "cytoplasmic"),
-      make_offspring("C_I", "C_O", c_genotype_1, freq_2, "cytoplasmic"),
-      make_offspring("C_O", "C_I", c_genotype_2, freq_2, "cytoplasmic"),
-      make_offspring("C_O", "C_O", c_genotype_2, freq_2, "cytoplasmic")
-    )) %>% 
-    filter(locus_type == gene_location)
+  if(gene_location == "A"){
+    books <- rbind(
+      make_offspring(2, 2, offspring_genotypes_1, freq_2, offspring_sex_2),
+      make_offspring(2, 1, offspring_genotypes_2, freq_4, offspring_sex_4),
+      make_offspring(2, 0, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(1, 2, offspring_genotypes_2, freq_4, offspring_sex_4),
+      make_offspring(1, 1, offspring_genotypes_4, freq_6, offspring_sex_6),
+      make_offspring(1, 0, offspring_genotypes_5, freq_4, offspring_sex_4),
+      make_offspring(0, 2, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(0, 1, offspring_genotypes_5, freq_4, offspring_sex_4),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2)
+    )
+  }
+  
+  if(gene_location == "X"){
+    books <- rbind(
+      make_offspring(2, 1, offspring_genotypes_7, freq_2, offspring_sex_2),
+      make_offspring(2, 0, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(1, 1, offspring_genotypes_8, freq_4, offspring_sex_4),
+      make_offspring(1, 0, offspring_genotypes_5, freq_4, offspring_sex_4),
+      make_offspring(0, 1, offspring_genotypes_9, freq_2, offspring_sex_2),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2)
+    )
+  }
+  
+  if(gene_location == "Y"){
+    books <- rbind(
+      make_offspring(0, 1, offspring_genotypes_10, freq_2, offspring_sex_2),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2)
+    )
+  }
+  
+  if(gene_location == "Z"){
+    books <- rbind(
+      make_offspring(1, 2, offspring_genotypes_11, freq_2, offspring_sex_2),
+      make_offspring(0, 2, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(1, 1, offspring_genotypes_12, freq_4, offspring_sex_4),
+      make_offspring(0, 1, offspring_genotypes_5, freq_4, offspring_sex_4),
+      make_offspring(1, 0, offspring_genotypes_10, freq_2, offspring_sex_2),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2)
+    )
+  }
+  
+  if(gene_location == "W"){
+    books <- rbind(
+      make_offspring(1, 0, offspring_genotypes_9, freq_2, offspring_sex_2),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2)
+    )
+  }
+  
+  if(gene_location == "C"){
+    books <- rbind(
+      make_offspring(1, 0, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(1, 1, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2),
+      make_offspring(0, 1, offspring_genotypes_6, freq_2, offspring_sex_2)
+    )
+  }
+  
+  if(gene_location == "P"){
+    books <- rbind(
+      make_offspring(1, 0, offspring_genotypes_6, freq_2, offspring_sex_2),
+      make_offspring(1, 1, offspring_genotypes_3, freq_2, offspring_sex_2),
+      make_offspring(0, 0, offspring_genotypes_6, freq_2, offspring_sex_2),
+      make_offspring(0, 1, offspring_genotypes_3, freq_2, offspring_sex_2)
+    )
+  }
+  return(books)  
 }
 
-# load the autosomal inheritance table for faster computation
+offspring_genotypes_autosome <- make_mating_table("A")
+offspring_genotypes_X <- make_mating_table("X")
+offspring_genotypes_Y <- make_mating_table("Y")
+offspring_genotypes_Z <- make_mating_table("Z")
+offspring_genotypes_W <- make_mating_table("W")
+offspring_genotypes_C <- make_mating_table("C")
+offspring_genotypes_P <- make_mating_table("P")
 
-offspring_genotypes_autosome <- 
-  make_mating_table(gene_location = "autosomal") %>% 
-  select(1:4) %>% 
-  rename(zygote_type = type) %>% 
-  separate_wider_delim(zygote_type, names = c("Genotype", "Sex"), delim = ".") %>% 
-  mutate(Sex = if_else(Sex == "Female", 1, 0)) %>% 
-  as.data.table()
+sample_mating_table <- function(inheritance_scheme, 
+                                f,
+                                mother){
+  
+  # cut to possible genotypes
+  possibilities <- 
+    inheritance_scheme[inheritance_scheme$Female_genotype == mother[4] &
+                         inheritance_scheme$Male_genotype == mother[9], c(3,5)]
+  # get prob of producing each genotype
+  probs <- 
+    inheritance_scheme[inheritance_scheme$Female_genotype == mother[4] &
+                         inheritance_scheme$Male_genotype == mother[9], 4]
+  # sample
+  possibilities[sample(size = f,
+                       x = nrow(possibilities), 
+                       prob = probs,
+                       replace = TRUE), ]
+}
 
-# main simulation function
 
 continuous_time_simulation <- function(row,
                                        parameters,
                                        inheritance_scheme){
-  library(data.table) # note that we must load these packages within the function for HPC to work
-  library(tidyverse)
-  print(paste("Doing row", row)) # this tells you which row in the parameter space is being modelled
   
-  # prop_i_table <- data.table(time = numeric(), 
-  #                           proportion_I = numeric(),
-  #                          population_size = numeric()) # filled in as sim progresses
+  #print(paste("Doing row", row)) # this shows which row in the parameter space is being modelled
   
-  keep_going <- TRUE # if the inbreeding allele fixes or goes extinct, this will change to false and the while loop will quit early
-  
-  Starting_pop_size <- parameters$Starting_pop_size[row] 
-  N <- parameters$N[row] # constant
-  number_mutants <- parameters$number_mutants[row] # constant at 1 
-  baseline_mean_lifespan <- parameters$baseline_mean_lifespan[row] # constant at 2
+  Starting_pop_size <- round(parameters$Starting_pop_size[row], 0)
+  f <- parameters$f[row] # fecundity constant
+  mutation_time <- parameters$mutation_time[row] # introduce an I allele after family structure is established
+  baseline_mean_lifespan <- parameters$baseline_mean_lifespan[row] # constant at 1
   time_end <- parameters$time_end[row] # a cut-off point for each run 
   sex_expressed <- parameters$sex_expressed[row]
   chromosome <- parameters$chromosome[row]
-  heterozygous_genotype <- parameters$heterozygous_genotype[row]
-  homozygous_genotype <- parameters$homozygous_genotype[row]
-  hemizygous_genotype <- parameters$hemizygous_genotype[row]
-  #C <- parameters$C[row]
   v <- parameters$v[row]
   refractory_period <- parameters$refractory_period[row]
   D <- parameters$D[row]
   dominance <- parameters$dominance[row]
-  
-  # define the starting genotypes for each sex so the population table can be built
-  
-  Female_starting_genotype <- inheritance_scheme[.N]$Female_genotype
-  
-  Male_starting_genotype <- inheritance_scheme[.N]$Male_genotype
+  parameter_space_ID <- parameters$parameter_space_ID[row]
+  mutation_events <- parameters$mutation_events[row]
   
   # Set the number of breeding sites
   
-  breeding_sites <- 0.5*Starting_pop_size
+  breeding_sites <- round(0.2*Starting_pop_size, 0)
   
-  # Initialize the Individual_ID  and Family_ID counters
+  # what inheritance system does this run follow
+  offspring_genotypes <- inheritance_scheme
+  
+  # Set the maximum number of I alleles that can be found in each sex
+  if(chromosome == "A"){
+    female_max_I <- 2
+    male_max_I <- 2
+  }
+  
+  if(chromosome == "X"){
+    female_max_I <- 2
+    male_max_I <- 1
+  }
+  
+  if(chromosome == "Z"){
+    female_max_I <- 1
+    male_max_I <- 2
+  }
+  
+  if(chromosome == "Y"){
+    female_max_I <- 0
+    male_max_I <- 1
+  }
+  
+  if(chromosome == "W"){
+    female_max_I <- 1
+    male_max_I <- 0
+  }
+  
+  if(chromosome == "C" | chromosome == "P"){
+    female_max_I <- 1
+    male_max_I <- 1
+  }
+  
+  # make matrix to hold results; updated as sim progresses
+  # col1 = time, col2 = prop I, col3 = pop size, col4 = prop virgin female deaths
+  results_matrix <- matrix(nrow = time_end*4+2, ncol = 4) # record each time point
+  
+  # make matrix to hold population; updated as sim progresses
+  
+  # col1 = ID 
+  # col2 = Family ID
+  # col3 = Sex: females = 1 and males = 0
+  # col4 = Genotype: 0, 1 and 2 = copies of inbreeding allele
+  # col5 = mortality rate
+  # col6 = encountered relative: NA = NO, 1 = YES
+  # col7 = mating state: -Inf not in pop, NA = unmated, real = out, Inf = mated female
+  # col8 = inbred mating: NA = NO, 1 = YES (only matters for females)
+  # col9 = mated_genotype: NA = unmated, otherwise 0,1,2 (see mating table)
+  # col10 = breeding site:  NA = NO, 1 = YES 
+  # col11 = no. matings (only matters for males)
+  # col12 = offspring produced: NA = NO, 1 = YES
+  
+  pop_matrix <- matrix(nrow = Starting_pop_size*2, # pop expands with initial repro pulse
+                       ncol = 12)
+  # ID & Family ID
+  pop_matrix[1:Starting_pop_size, 1:2] <- 1:Starting_pop_size
+  # assign sex
+  pop_matrix[1:Starting_pop_size, 3] <- rbinom(n = Starting_pop_size, 1, prob = 0.5)
+  # female_starting_genotype
+  pop_matrix[pop_matrix[,3] < 1 & !is.na(pop_matrix[,3]), 4] <- 0
+  # male_starting_genotype
+  pop_matrix[pop_matrix[,3] > 0 & !is.na(pop_matrix[,3]), 4] <- 0
+  # assign mortality rates
+  pop_matrix[1:Starting_pop_size, 5] <- 1/baseline_mean_lifespan
+  # set the unused rows to state -Inf 
+  pop_matrix[(Starting_pop_size + 1):nrow(pop_matrix), 7] <- -Inf
+  # mate count
+  pop_matrix[1:Starting_pop_size, 11] <- 0
+  # offspring production status
+  pop_matrix[1:Starting_pop_size, 12] <- NA
+  # populate breeding sites
+  # the starting no. of females generally exceeds the number of breeding sites, which is starting_pop_size/f. The code below selects the initial breeding site holders
+  
+  if(nrow(pop_matrix[pop_matrix[,3] > 0 & !is.na(pop_matrix[,3]),]) > breeding_sites){
+    
+    initial_breeders <- head(pop_matrix[pop_matrix[,3] > 0 & !is.na(pop_matrix[,3]),1], breeding_sites)
+    
+    pop_matrix[initial_breeders,10] <- 1 # take advantage of ID = row number for initial pop
+    
+  } else{pop_matrix[pop_matrix[,3] > 0 & !is.na(pop_matrix[,3]), 10] <- 1}
+  
+  # Initialise counter for the results table
+  
+  next_update <- 0 # keep track of when to update the results
+  next_row <- 0 # keep track of which row to update
+  
+  # Initialise the Individual_ID and Family_ID counters
   
   Individual_ID_counter <- Starting_pop_size
   
-  Family_ID_counter <- Starting_pop_size/N # family size equals the no. offspring produced by a single female
+  Family_ID_counter <- Starting_pop_size # each individual descends from a distinct family at onset
   
-  # the simulation tracks the population via a data.table
+  # Initialise the timer t
   
-  # create the starting population - note that females are sex = 1 and males are sex = 0
+  t <- 0
   
-  population <-
-    data.table(mortality_rate = 1/baseline_mean_lifespan,
-               Sex = rbinom(n = Starting_pop_size, 1, prob = 0.5),
-               birth_time = 0,
-               matings = 0,
-               reproduced = 0,
-               mated_with = "NA",
-               inbred_mating = 0,
-               refractory_period_end = 0
-    )[, `:=` (Genotype = ifelse(Sex > 0, Female_starting_genotype, Male_starting_genotype),
-              breeding = Sex,
-              Individual_ID = .I,
-              Family_ID = rep(1:(.N/N), each = N, length.out = .N))]
+  # Set initial pop size and freq of I allele for results table
   
-  # seed population with the inbreeding allele
+  Prop_I <- 0 
+  pop_size <- Starting_pop_size
+  total_female_deaths <- 0
+  mated_female_deaths <- 0
   
-  population[sample(which(str_detect(Genotype, pattern = chromosome)), size = number_mutants, replace = F),
-             Genotype := str_replace(Genotype, pattern = paste0(chromosome, "_O"), replacement = paste0(chromosome, "_I"))]
+  # Start population without the I allele to generate family structure
+  # Flips to 1 at mutant intro time point 
   
-  # Determining the next event
+  mutant_introduced <- 0
   
-  # check when the next death occurs
+  keep_going <- TRUE # if the inbreeding allele fixes or goes extinct, this will change to false and the while loop will quit early
   
-  next_death <- rexp(n = 1, rate = sum(population[, mortality_rate]))
+  # With the initial population ready to go, start the timer and let the simulation run.
   
-  who_died <- population[sample(.N, 1, prob = mortality_rate)]
-  
-  # check when the next female-male encounter occurs
-  
-  # create the possible encounter list
-  
-  number_females <- sum(population$Sex > 0)
-  
-  encounter_possibilities <- 
-    CJ(Female_ID = population[Sex > 0]$Individual_ID,
-       Male_ID = population[Sex < 1]$Individual_ID)[, encounter_rate := v/number_females]
-  
-  # check the time
-  
-  next_mating <- rexp(n = 1, rate = sum(encounter_possibilities[, encounter_rate]))
-  
-  which_encounter <- encounter_possibilities[sample(.N, 1, prob = encounter_rate)]
-  
-  
-  # Initialize the timer t to the first encounter
-  
-  t <- pmin(next_death, next_mating)
-  
-  # With the initial population ready to go and the first event found, start the timer and let the simulation run. In short, time progresses as events occur. Events can trigger state changes for the individuals in the population, leading to death, mating and offspring production.
-  
-  while (t <= time_end & keep_going) {
+  while(t <= time_end & keep_going){
     
-    # what type of encounter happens at time t
+    print(paste0("Population size = ", pop_size, 
+                 ", breeders = ", sum(pop_matrix[,10], na.rm = T), 
+                 ", time = ", round(t, 3), ", Prop I =", Prop_I, ", mutation events =", mutant_introduced))
     
-    if(next_death < next_mating){
+    # find next event 
+    
+    # next death: this is the sum of the mortality rates for all individuals in the population
+    
+    next_death <- t + rexp(n = 1, rate = sum(pop_matrix[, 5], na.rm = T))
+    
+    # next receptive mating encounter
+    
+    # find no. of females in mating pool & separate by encounter experience
+    
+    receptive_females_first_encounter <- 
+      pop_matrix[pop_matrix[,3] > 0 &
+                   is.na(pop_matrix[,6]) &
+                   is.na(pop_matrix[,7]),, drop = FALSE]
+    
+    receptive_females_second_encounter <- 
+      pop_matrix[pop_matrix[,3] > 0 &
+                   !is.na(pop_matrix[,6]) &
+                   is.na(pop_matrix[,7]),, drop = FALSE]
+    
+    # find no. of males in mating pool
+    receptive_males <- pop_matrix[pop_matrix[,3] < 1 & is.na(pop_matrix[,7]),, drop = FALSE]
+    
+    # Find the time the next encounter occurs: plug the sum of the rates into the exponential function. 
+    # The population level encounter rate is the product of the rate at which a single male finds a single female, the number of receptive females in the population, and the number of receptive males in the population
+    
+    next_first_encounter <- t + 
+      rexp(n = 1, rate = v*nrow(receptive_females_first_encounter)*nrow(receptive_males))
+    
+    next_secondary_encounter <- t + 
+      rexp(n = 1, rate = v*nrow(receptive_females_second_encounter)*nrow(receptive_males))
+    
+    # time in - Inf, Inf and Na are possible options that the code can handle 
+    next_time_in <- min(pop_matrix[is.finite(pop_matrix[,7]),7])
+    
+    # find which event happens next and update t
+    t <- pmin(next_death,
+              next_time_in, 
+              next_first_encounter,
+              next_secondary_encounter,
+              next_update, # update the population
+              na.rm = TRUE) # ... if a rate is 0, NaN produced.
+    
+    
+    if(t == next_update & !is.na(next_update)){# record time, I prop and pop size
+      results_matrix[next_row+1,1] <- t
+      results_matrix[next_row+1,2] <- round(Prop_I, 4)
+      results_matrix[next_row+1,3] <- pop_size # popsize
+      results_matrix[next_row+1,4] <- round(mated_female_deaths / total_female_deaths, 3)
+      next_update <- next_update + 0.25
+      next_row <- next_row + 1
+      total_female_deaths <- 0 # reset the count
+      mated_female_deaths <- 0 # reset the count
+    }
+    
+    
+    if(t == next_death){# remove an individual from the pop
+      who_died <- 
+        sample_vec(size = 1, # choose one
+                   x = pop_matrix[!is.na(pop_matrix[,1]),1], # subset to current pop
+                   prob = pop_matrix[!is.na(pop_matrix[,5]),5]) # weight by mortality rate
+      # add a death if it was a female
+      if(nrow(pop_matrix[pop_matrix[,1] == who_died &
+                         !is.na(pop_matrix[,1]) &
+                         pop_matrix[,3] > 0,, drop = FALSE]) > 0){total_female_deaths <- total_female_deaths + 1}
       
-      # Male mortality events
+      # add virgin female deaths
+      if(nrow(pop_matrix[pop_matrix[,1] == who_died &
+                         !is.na(pop_matrix[,1]) &
+                         pop_matrix[,3] > 0 &
+                         is.infinite(pop_matrix[,7]),, drop = FALSE]) > 0){mated_female_deaths <- mated_female_deaths + 1}
       
-      if(who_died[,Sex] < 1){
-        
-        # remove male from population table
-        
-        population <- population[!Individual_ID %chin% who_died$Individual_ID]
-        
-      }
+      # remove individual from pop matrix
+      pop_matrix[pop_matrix[,1] == who_died, 7] <- -Inf # NA means time-in here, so special edit required
+      pop_matrix[pop_matrix[,1] == who_died, c(1:6, 8:12)] <- NA 
       
-      # Female mortality events
+      # re-order to make steps like adding offspring easier later on
+      pop_matrix <- pop_matrix[order(pop_matrix[,1]),]
       
-      if(who_died[,Sex] > 0){
-        
-        # remove female from population table and candidate list
-        
-        population <- population[!Individual_ID %chin% who_died$Individual_ID]
-        
-        # check if female mortality event frees up breeding site
-        
-        current_breeders <- sum(population$breeding > 0)
-        
-        # If there is an available breeding site, and at least one female to fill it, recruit a new breeder
-        
-        if(current_breeders < breeding_sites && sum(population$Sex > 0 & population$breeding < 1) > 0){
-          
-          # assign the new breeders
-          
-          population <- population[sample(which(breeding < 1 & Sex > 0),
-                                          size = 1), # note that all living females have equal prob of becoming a breeder
-                                   breeding := 1]
-        }
-      }
-    } else{
+    }
+    
+    # check if there are free breeding sites and whether females are available to fill them 
+    
+    current_breeders <- sum(pop_matrix[, 10], na.rm = T)
+    
+    # get list of IDs for floating females
+    floating_females <- pop_matrix[!is.na(pop_matrix[,1]) & # alive
+                                     pop_matrix[,3] > 0 & # female
+                                     is.na(pop_matrix[,10]), # non-breeding
+                                   1] # return the IDs only
+    
+    # If so, recruit a new breeder
+    # All prospective females have equal probability
+    
+    if(current_breeders < breeding_sites & length(floating_females) > 0){
       
-      # Opposite sex encounters
+      # assign the new breeder
       
-      female <- population[Individual_ID %chin% which_encounter$Female_ID]
-      male <- population[Individual_ID %chin% which_encounter$Male_ID]
+      new_breeder <- 
+        sample_vec(size = 1, # choose one
+                   x = floating_females) # subset to floaters
       
-      # if the encounter occurs involving an individual expressing the A_I allele, provide an opportunity for inbreeding. The hurdle requirement for an inbreeding opportunity is that an individual must stay alive long enough to meet any member of the opposite sex. We then code the simulation such that this opposite sex individual is swapped out for a full-sibling that can be mated with. This simulates a common situation in nature, where due to population viscosity, relatives live in close geographic proximity and are thus more likely to be encountered, or to be encountered early in life. 
+      pop_matrix[pop_matrix[,1] == new_breeder, 10] <- 1
+    }
+    
+    if(t == next_time_in & !is.na(next_time_in)){ # a male re-enters the mating pool
+      pop_matrix[pop_matrix[,7] == next_time_in, 7] <- NA # change to receptive
+    }
+    
+    #### mating
+    
+    if(t == next_first_encounter &
+       !is.na(next_first_encounter)){# does first encounter lead to (inbred) mating?
       
-      # First determine if a homogametic individual carrying one copy of the I allele will inbreed on this occasion.  
-      
+      # Determine whether a heterozygote inbreeds on this occasion. 
+      # Depends on genotype if this matters
       heterozygote_inbreeds <- rbinom(1, 1, prob = dominance)
       
-      # find males that will inbreed when they are the sex that expresses inbreeding tolerance
+      # which female
+      female_ID <- sample_vec(receptive_females_first_encounter[,1], 1)
+      # get meta-data
+      female <- subset(pop_matrix, pop_matrix[,1] == female_ID)
+      # how many inbreeding alleles does she carry?
+      alleles_female <- female[,4]
       
-      # male heterozygotes (FALSE if there isn't a heterozygote male genotype)
+      mates <- NULL # reset this every time as a safeguard - MAYBE REMOVE?
       
-      if(sex_expressed < 1 & 
-         str_detect(male$Genotype, heterozygous_genotype) & 
-         heterozygote_inbreeds > 0 &
-         male$refractory_period_end < t){
+      # find brothers that are in the mating pool
+      brothers <-
+        pop_matrix[pop_matrix[,2] == female[, 2] & # find family members
+                     pop_matrix[,3] < 1 & # that are male
+                     is.na(pop_matrix[,7]) & # and in the mating pool
+                     !is.na(pop_matrix[,1]), # remove NAs
+                   1] 
+      # find the specific brother - if there aren't any, inbreeding does not happen
+      if(length(brothers) > 0){# choose brother randomly
+        chosen_brother <-
+          subset(pop_matrix, 
+                 pop_matrix[,1] == sample_vec(size = 1, x = brothers))
+        # how many inbreeding alleles does he carry?
+        alleles_brother <- chosen_brother[,4]
+        brother_ID <- chosen_brother[,1]
+      }else{alleles_brother <- 0} # we need this for the next if statement
+      
+      # now determine whether inbreeding occurs:
+      # which individual expresses the allele
+      # does that individual have the allele
+      # is it expressed (depends on genomic region, no. copies and dominance)
+      
+      if(# female expression determines outcome
+        # dominance doesn't matter
+        length(brothers) > 0 & sex_expressed > 0 & female_max_I == alleles_female |
+        # dominance matters
+        length(brothers) > 0 & sex_expressed > 0 & 
+        0 < alleles_female & alleles_female < female_max_I & heterozygote_inbreeds > 0 |
+        # male expression determines outcome
+        # dominance doesn't matter
+        length(brothers) > 0 & sex_expressed < 1 & male_max_I == alleles_brother |
+        # dominance matters
+        length(brothers) > 0 & sex_expressed < 1 & 
+        0 < alleles_brother & alleles_brother < male_max_I & heterozygote_inbreeds > 0){
         
-        # find a new mate (sister) for the males
+        # do inbreeding
+        # update the pop matrix
+        # female
+        pop_matrix[pop_matrix[,1] == female_ID, 6] <- 1 # relative has been encountered
+        pop_matrix[pop_matrix[,1] == female_ID, 7] <- Inf # female leaves mating pool
+        pop_matrix[pop_matrix[,1] == female_ID, 8] <- 1 # inbreeding occurs
+        pop_matrix[pop_matrix[,1] == female_ID, 9] <- alleles_brother # mates genotype
         
-        sister_mating <-
-          population[Family_ID %chin% male$Family_ID
-          ][Sex > 0, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][matings < 1][, mated_with := male[,Genotype]] 
+        # male
+        pop_matrix[pop_matrix[,1] == brother_ID, 7] <- t + refractory_period # male leaves mating pool
+        pop_matrix[pop_matrix[,1] == brother_ID, 8] <- 1 # inbreeding occurs
+        pop_matrix[pop_matrix[,1] == brother_ID & !is.na(pop_matrix[,1]), 11] <-
+          pop_matrix[pop_matrix[,1] == brother_ID & !is.na(pop_matrix[,1]), 11] + 1
+      } else{
+        # inbreeding is avoided
+        # females that had no receptive brother to encounter are recorded as having had their chance for inbreeding early in life. When the male refractory period != 0, this is possible but unlikely (because all siblings are produced at the same time). Most commonly, this will occur when a female produces an all-female brood (0.03125 probability when f=5)
         
-        # if mating occurred, update the population
-        
-        if(nrow(sister_mating)>0){
-          
-          mates <- rbindlist(list(male, sister_mating))
-          
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
+        pop_matrix[pop_matrix[,1] == female_ID, 6] <- 1 # relative has been encountered
       }
-      
-      # male homozygotes (also includes cases where males only ever have one copy of the chromosome e.g. X, Y, C)
-      
-      if(sex_expressed < 1 & 
-         str_detect(male$Genotype, homozygous_genotype) &
-         male$refractory_period_end < t){
-        
-        # find a new mate (sister) for the males
-        
-        sister_mating <-
-          population[Family_ID %chin% male$Family_ID
-          ][Sex > 0, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][matings < 1][, mated_with := male[,Genotype]] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(sister_mating)>0){
-          
-          mates <- rbindlist(list(male, sister_mating))
-          
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
-      }
-      
-      # find females that will inbreed when they are the sex that expresses inbreeding tolerance
-      
-      # female heterozygotes (FALSE if there isn't a heterozygote female genotype)
-      
-      if(sex_expressed > 0 & 
-         str_detect(female$Genotype, heterozygous_genotype) & 
-         heterozygote_inbreeds > 0 &
-         female$matings < 1){
-        
-        # find a new mate (brother) for the female
-        
-        brother_mating <-
-          population[Family_ID %chin% female$Family_ID
-          ][Sex < 1, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][t > refractory_period_end] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(brother_mating)>0){
-          
-          mates <- rbindlist(list(female[, mated_with := brother_mating[,Genotype]], brother_mating))
-          
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
-      }
-      
-      # female homozygotes (also includes cases where females only ever have one copy of the chromosome e.g. Z, W, C)
-      
-      if(sex_expressed > 0 & 
-         str_detect(female$Genotype, homozygous_genotype) &
-         female$matings < 1){
-        
-        # find a new mate (brother) for the females
-        
-        brother_mating <-
-          population[Family_ID %chin% female$Family_ID
-          ][Sex < 1, .SD[sample(1, 1)] # assign a sibling, then check if they're receptive
-          ][t > refractory_period_end] 
-        
-        # if mating occurred, update the population
-        
-        if(nrow(brother_mating)>0){
-          
-          mates <- rbindlist(list(female[, mated_with := brother_mating[,Genotype]], brother_mating))
-          
-          population[mates,
-                     `:=`(matings = matings + 1,
-                          inbred_mating = 1 * (Sex > 0),
-                          mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                          refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                     on = .(Individual_ID)]
-        }
-      }
-      
-      # standard outbred mating
-      
-      if((female$matings < 1 & t > male$refractory_period_end) |
-         (female$matings < 1 & t > male$refractory_period_end &
-          sex_expressed < 1 & str_detect(male$Genotype, heterozygous_genotype) & heterozygote_inbreeds < 1) |
-         (female$matings < 1 & t > male$refractory_period_end &
-          sex_expressed > 0 & str_detect(female$Genotype, heterozygous_genotype) & heterozygote_inbreeds < 1)){
-        
-        # update the population
-        
-        mates <- rbindlist(list(female[, mated_with := male[,Genotype]], male))
-        
-        population[mates,
-                   `:=`(matings = matings + 1,
-                        inbred_mating = 0,
-                        mated_with = ifelse(Sex > 0, i.mated_with, NA),
-                        refractory_period_end = (t + refractory_period * baseline_mean_lifespan) * (Sex < 1)),
-                   on = .(Individual_ID)] 
-      }
-      
     }
     
-    # reproduction
-    
-    # check if a female can now produce offspring, either because they're previously mated and have secured a breeding site or because they already held a breeding site and have now mated
-    
-    new_mated_breeder <- population[Sex > 0 & matings > 0 & breeding > 0 & reproduced < 1, 
-                                    .(Individual_ID,
-                                      inbred_mating,
-                                      Female_genotype = Genotype,
-                                      Male_genotype = mated_with)]
-    
-    if(nrow(new_mated_breeder) > 0) {
-      # add offspring to the population. Each mated female that holds a breeding site produces N offspring
-      offspring <- 
-        new_mated_breeder[inheritance_scheme, 
-                          on = .(Female_genotype = Female_genotype,
-                                 Male_genotype = Male_genotype), 
-                          nomatch = NULL, allow.cartesian  = TRUE
-        ][, .SD[sample(.N, # I think this value is very occasionally zero, causing the sim to break
-                       size = N, 
-                       prob = zygote_freq, 
-                       replace = T)]
-        ][, Family_ID := .GRP + Family_ID_counter # assign these offspring to a new family 
-        ][, .(Genotype, 
-              Sex, 
-              inbred_mating,
-              Family_ID)
-        ][, `:=`(mortality_rate = ifelse(inbred_mating > 0, 
-                                         1/(baseline_mean_lifespan + D), # the cost of inbreeding: D <= 0
-                                         1/baseline_mean_lifespan), # outbred offspring mortality risk
-                 birth_time = t,
-                 breeding = 0,
-                 matings = 0,
-                 reproduced = 0,
-                 mated_with = "NA",
-                 refractory_period_end = t,
-                 Individual_ID = .I + Individual_ID_counter,
-                 inbred_mating = 0)]
+    if(t == next_secondary_encounter &
+       !is.na(next_secondary_encounter)){ 
+      # If the individual has already encountered a sibling, don't swap and let encounter proceed. 
       
-      # bind the offspring table to the existing population table and update which females have reproduced 
+      # which female
+      female_ID <- sample_vec(receptive_females_second_encounter[,1], 1)
+      # get meta-data
+      female <- subset(pop_matrix, pop_matrix[,1] == female_ID)
+      # how many inbreeding alleles does she carry?
+      alleles_female <- female[,4]  
       
-      population <- rbindlist(list(population, offspring), use.names = TRUE
-      )[new_mated_breeder, reproduced := 1, on = .(Individual_ID)]
+      # which male
+      male_ID <- sample_vec(receptive_males[,1], 1)
+      # get meta-data
+      male <- subset(pop_matrix, pop_matrix[,1] == male_ID)
+      # how many inbreeding alleles does he carry?
+      alleles_male <- male[,4] 
       
-      # update the Individual_ID counter
-      Individual_ID_counter <- max(population$Individual_ID)
-      Family_ID_counter <- max(population$Family_ID) 
+      # If the pair happen to be siblings, check if they inbreed  
+      
+      # Determine whether a heterozygote inbreeds on this occasion. 
+      # Depends on genotype if this matters
+      heterozygote_inbreeds <- rbinom(1, 1, prob = dominance)
+      
+      if(
+        # female expression determines outcome
+        # dominance doesn't matter
+        female[,2] == male[,2] & sex_expressed > 0 & female_max_I == alleles_female |
+        # dominance matters
+        female[,2] == male[,2] & sex_expressed > 0 & 
+        0 < alleles_female & alleles_female < female_max_I & heterozygote_inbreeds > 0 |
+        # male expression determines outcome
+        # dominance doesn't matter
+        female[,2] == male[,2] & sex_expressed < 1 & male_max_I == alleles_male |
+        # dominance matters
+        female[,2] == male[,2] & sex_expressed < 1 & 
+        0 < alleles_male & alleles_male < male_max_I & heterozygote_inbreeds > 0){
+        
+        # do inbreeding
+        # update the pop matrix
+        # female
+        pop_matrix[pop_matrix[,1] == female_ID, 7] <- Inf # female leaves mating pool
+        pop_matrix[pop_matrix[,1] == female_ID, 8] <- 1 # inbreeding occurs
+        pop_matrix[pop_matrix[,1] == female_ID, 9] <- alleles_male # mates genotype
+        
+        # male
+        pop_matrix[pop_matrix[,1] == male_ID, 7] <- t + refractory_period # male leaves mating pool
+        pop_matrix[pop_matrix[,1] == male_ID & !is.na(pop_matrix[,1]), 11] <-
+          pop_matrix[pop_matrix[,1] == male_ID & !is.na(pop_matrix[,1]), 11] + 1
+      } else{
+        # do outbreeding
+        # update the pop matrix
+        # female
+        pop_matrix[pop_matrix[,1] == female_ID, 7] <- Inf # female leaves mating pool
+        pop_matrix[pop_matrix[,1] == female_ID, 9] <- alleles_male # mates genotype
+        
+        # male
+        pop_matrix[pop_matrix[,1] == male_ID, 7] <- t + refractory_period # male leaves mating pool
+        pop_matrix[pop_matrix[,1] == male_ID & !is.na(pop_matrix[,1]), 11] <-
+          pop_matrix[pop_matrix[,1] == male_ID & !is.na(pop_matrix[,1]), 11] + 1
+      }
     }
     
+    # Consequences of death and mating: reproduction
+    
+    # check if a female can now produce offspring, either because they're previously mated and have secured a breeding site or because they already hold a breeding site and have now mated
+    # make sure that previous breeders are excluded
+    
+    new_mated_breeder <- pop_matrix[is.infinite(pop_matrix[,7]) & # mated
+                                      !is.na(pop_matrix[,10]) & # holds breeding site
+                                      is.na(pop_matrix[,12]),, drop = FALSE] # hasn't reproduced
+    
+    if(nrow(new_mated_breeder) > 0){
+      # add offspring to the population
+      # each mated female that holds a breeding site produces f offspring
+      
+      # first check whether the mutant I allele should be added
+      if(mutant_introduced < mutation_events & t > mutation_time){
+        which_sex <- rbinom(1, 1, prob = 0.5)
+        
+        if(chromosome == "A" & which_sex == 1 |
+           chromosome == "X" & which_sex == 1 |
+           chromosome == "Z" & which_sex == 1){
+          new_mated_breeder[4] <- 1
+        }
+        
+        if(chromosome == "A" & which_sex == 0 |
+           chromosome == "X" & which_sex == 0 |
+           chromosome == "Z" & which_sex == 0){
+          new_mated_breeder[9] <- 1
+        }
+        
+        if(chromosome == "W"|
+           chromosome == "C"){
+          new_mated_breeder[4] <- 1
+        }
+        
+        if(chromosome == "Y" |
+           chromosome == "P"){
+          new_mated_breeder[9] <- 1
+        }
+        
+        mutant_introduced <- mutant_introduced + 1
+      }
+      
+      next_row_to_fill <- length(pop_matrix[!is.na(pop_matrix[,1]),1]) + 1
+      last_row_to_fill <- next_row_to_fill + f - 1
+      next_ID <- Individual_ID_counter + 1
+      last_ID <- Individual_ID_counter + f
+      Family_ID_counter <- Family_ID_counter + 1
+      
+      # assign IDs
+      pop_matrix[next_row_to_fill:last_row_to_fill, 1] <- next_ID:last_ID
+      # assign all offspring to a single family
+      pop_matrix[next_row_to_fill:last_row_to_fill, 2] <- Family_ID_counter
+      # assign sex and genotype using our mating table sampling function
+      offspring_genos <- 
+        sample_mating_table(inheritance_scheme,
+                            f, 
+                            mother = new_mated_breeder)
+      pop_matrix[next_row_to_fill:last_row_to_fill, 3] <- offspring_genos[,2]
+      pop_matrix[next_row_to_fill:last_row_to_fill, 4] <- offspring_genos[,1]
+      # assign mortality rates
+      if(is.na(new_mated_breeder[8])){
+        pop_matrix[next_row_to_fill:last_row_to_fill, 5] <- 1/baseline_mean_lifespan
+      } else{ # apply effect of inbreeding depression
+        pop_matrix[next_row_to_fill:last_row_to_fill, 5] <- 1/(baseline_mean_lifespan + D)
+      }
+      # fill in the mating and breeding site details - everyone starts as a floating virgin
+      pop_matrix[next_row_to_fill:last_row_to_fill, 6:10] <- NA
+      # mate count
+      pop_matrix[next_row_to_fill:last_row_to_fill, 11] <- 0
+      
+      
+      # update the mothers offspring production status
+      
+      pop_matrix[pop_matrix[,1] == new_mated_breeder[1], 12] <- 1
+      
+      # update the individual ID counter (redundant but more readable to do this here)
+      Individual_ID_counter <- last_ID
+      
+    }      
     
     # Calculate the frequency of the I allele, quit early if I fixes or goes extinct
     
+    pop_size <- nrow(pop_matrix[!is.na(pop_matrix[,1]),, drop = FALSE]) # use this to update the results
+    n_females <- nrow(pop_matrix[!is.na(pop_matrix[,1]) &
+                                   pop_matrix[,3] > 0,, drop = FALSE])
+    n_males <- pop_size - n_females
+    
     # calc allele freq if autosomal locus   
     if(chromosome == "A"){
-      prop_i <-
-        (length(population$Genotype[str_detect(population$Genotype, heterozygous_genotype)]) + 
-           2*length(population$Genotype[str_detect(population$Genotype, homozygous_genotype)]))/ (nrow(population)*2)
+      Prop_I <-
+        sum(pop_matrix[,4], na.rm = T)/(pop_size*2) # x2 because diploid
     }
     
-    # calc allele freq if hemizygous locus: W, Y or cytoplasmic
-    if(chromosome == "W" | chromosome == "Y" | chromosome == "C"){
-      prop_i <-
-        (length(population$Genotype[str_detect(population$Genotype, hemizygous_genotype)])/ 
-           length(population$Genotype[str_detect(population$Genotype, chromosome)]))
+    # calc allele freq if W locus   
+    if(chromosome == "W"){
+      Prop_I <-
+        sum(pop_matrix[,4], na.rm = T)/n_females
     }
     
-    # calc allele freq if diploid in one sex and haploid in the other: X and Z
-    if(chromosome == "X" | chromosome == "Z"){
-      prop_i <-
-        if(hemizygous_genotype == "X_IY_O"){
-          (length(population$Genotype[str_detect(population$Genotype, heterozygous_genotype)]) + 
-             2*length(population$Genotype[str_detect(population$Genotype, homozygous_genotype)]) +
-             length(population$Genotype[str_detect(population$Genotype, hemizygous_genotype)]))/ 
-            (nrow(population[Sex > 0])*2 + nrow(population[Sex < 1]))}
-      else{
-        (length(population$Genotype[str_detect(population$Genotype, heterozygous_genotype)]) + 
-           2*length(population$Genotype[str_detect(population$Genotype, homozygous_genotype)]) +
-           length(population$Genotype[str_detect(population$Genotype, hemizygous_genotype)]))/ 
-          (nrow(population[Sex < 1])*2 + nrow(population[Sex > 0]))}
+    # calc allele freq if Y locus   
+    if(chromosome == "Y"){
+      Prop_I <-
+        sum(pop_matrix[,4], na.rm = T)/n_males 
     }
     
-    # this is a diagnostic to make sure the model is running well - it can be commented out when running the big simulation
-    #prop_i_table <- rbindlist(list(prop_i_table, list(t, prop_i, nrow(population))))
+    # calc allele freq if X locus   
+    if(chromosome == "X"){
+      Prop_I <-
+        sum(pop_matrix[,4], na.rm = T)/(n_females*2 + n_males)
+    }
     
-    #print(paste0("Population size = ", nrow(population),
-    #            ", time = ", round(t, 3)))
+    # calc allele freq if Z locus   
+    if(chromosome == "Z"){
+      Prop_I <-
+        sum(pop_matrix[,4], na.rm = T)/(n_females + n_males*2) 
+    }
     
-    if(prop_i > 0.95 | prop_i < 0.0001 | nrow(population) < 2) keep_going <- FALSE
+    # calc allele freq if C locus   
+    if(chromosome == "C" |
+       chromosome == "P"){
+      Prop_I <-
+        sum(pop_matrix[,4], na.rm = T)/pop_size 
+    }
     
-    # Move t to next encounter
-    
-    # determining the next event
-    
-    # check when the next death occurs
-    
-    next_death <- rexp(n = 1, rate = sum(population[, mortality_rate]))
-    
-    who_died <- population[sample(.N, 1, prob = mortality_rate)]
-    
-    # check when the next female-male encounter occurs
-    
-    # create the possible encounter list
-    
-    number_females <- sum(population$Sex > 0)
-    
-    encounter_possibilities <- 
-      CJ(Female_ID = population[Sex > 0]$Individual_ID,
-         Male_ID = population[Sex < 1]$Individual_ID)[, encounter_rate := v/number_females]
-    
-    # check the time
-    
-    next_mating <- rexp(n = 1, rate = sum(encounter_possibilities[, encounter_rate]))
-    
-    which_encounter <- encounter_possibilities[sample(.N, 1, prob = encounter_rate)]
-    
-    # Initialize the timer t to the next encounter
-    
-    t <- t + pmin(next_death, next_mating)  
+    # quit condition
+    if(mutant_introduced > 0 & Prop_I > 0.9 |
+       mutant_introduced > 0 & Prop_I == 0 | 
+       pop_size < 2){keep_going <- FALSE}
     
   }
-  finish_time <- t
-  final_pop_size = nrow(population)
   
-  #prop_i_table
+  results_matrix[next_row+1,1] <- t
+  results_matrix[next_row+1,2] <- round(Prop_I, 4)
+  results_matrix[next_row+1,3] <- pop_size
+  results_matrix[next_row+1,4] <- round(mated_female_deaths / total_female_deaths, 3)
+  results_matrix <- results_matrix[-(next_row+2:nrow(results_matrix)),]
+  # save results as a csv.  
   
-  # Print the simulation results
-  #list(
-  results <- 
-    parameters[row, ] %>% mutate(I_frequency = prop_i,
-                                 finish_time = finish_time,
-                                 final_pop_size = final_pop_size) %>% 
-    select(-c(heterozygous_genotype, homozygous_genotype, hemizygous_genotype,
-              number_mutants, baseline_mean_lifespan, N, time_end)) %>% 
-    as.data.frame()
+  results_matrix
   
-  write_csv(results, paste("/lustre/miifs01/project/m2_jgu-tee/tk_output/sim_results_", row, ".csv", sep = ""))
-  # population,
-  #prop_i_table)
-  
+  write.csv(results_matrix,
+            paste("results/rowID_", 
+                  parameter_space_ID, 
+                  chromosome, ".csv", 
+                  sep = ""))
+  #write.csv(results_matrix,
+  #        paste("sim_results/rowID_", 
+  #            parameter_space_ID, 
+  #          chromosome, ".csv", 
+  #        sep = ""))
 }
 
-# find parameter space
-
-resolution <- 30
-starting_pop_size_autosomes <- 200 # both sexes harbour two copies of each autosomal chromosome = 400 autosomal haplotypes
-
-parameters <-
-  expand_grid(
-    #C = c(2, 10),
-    chromosome = c("A", "X", "Y", "Z", "W", "C"),
-    v = c(1, 5, 50),
-    D = seq(0, -0.99, length = resolution), # inbreeding depression
-    refractory_period = seq(0, 1, length = resolution)
-  ) %>% 
-  full_join(tibble(chromosome = c("A", "A", "A", "A", "A", "A",
-                                  "X", "X", "X", "X",
-                                  "Y",
-                                  "Z", "Z", "Z", "Z",
-                                  "W",
-                                  "C", "C"),
-                   sex_expressed = c(0, 0, 0, 1, 1, 1,
-                                     0, 1, 1, 1,
-                                     0,
-                                     0, 0, 0, 1,
-                                     1,
-                                     0, 1),
-                   dominance = c(0, 0.5, 1, 0, 0.5, 1,
-                                 1, 0, 0.5, 1, 
-                                 1, 
-                                 0, 0.5, 1, 1,
-                                 1,
-                                 1, 1)) %>% 
-              mutate(heterozygous_genotype = case_when(chromosome == "A" ~ "A_IA_O",
-                                                       chromosome == "X" ~ "X_IX_O",
-                                                       chromosome == "Y" ~ "NA",
-                                                       chromosome == "Z" ~ "Z_IZ_O",
-                                                       chromosome == "W" ~ "NA",
-                                                       chromosome == "C" ~ "NA"),
-                     homozygous_genotype = case_when(chromosome == "A" ~ "A_IA_I",
-                                                     chromosome == "X" ~ "X_IX_I",
-                                                     chromosome == "Y" ~ "NA",
-                                                     chromosome == "Z" ~ "Z_IZ_I",
-                                                     chromosome == "W" ~ "NA",
-                                                     chromosome == "C" ~ "NA"),
-                     hemizygous_genotype = case_when(chromosome == "A" ~ "NA",
-                                                     chromosome == "X" ~ "X_IY_O",
-                                                     chromosome == "Y" ~ "X_OY_I",
-                                                     chromosome == "Z" ~ "Z_IW_O",
-                                                     chromosome == "W" ~ "Z_OW_I",
-                                                     chromosome == "C" ~ "C_I"),
-                     Starting_pop_size = case_when(chromosome == "A" ~ starting_pop_size_autosomes,
-                                                   chromosome == "X" | chromosome == "Z" ~ 
-                                                     starting_pop_size_autosomes + 0.33*starting_pop_size_autosomes,
-                                                   chromosome == "Y" | chromosome == "W" ~ starting_pop_size_autosomes*4,
-                                                   chromosome == "C" ~ starting_pop_size_autosomes*2)),
-            relationship = "many-to-many", by = "chromosome") %>% 
-  mutate(baseline_mean_lifespan = 1,
-         N = 5, # subject to change
-         number_mutants = 4, # this equates to a starting frequency of 0.01
-         time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
-         parameter_space_ID = row_number())
-
-parameters_autosome <- parameters %>% filter(chromosome == "A")
-
-# this is the part we need to run in parallel
-
-#results <- lapply(1:2, continuous_time_simulation, 
-#           parameters = parameters_autosome, 
-#          offspring_genotypes_autosome)
-
-# here's the snow version of the function, note that the cl argument is a cluster object that I haven't specified yet
-
-results <- clusterApply(cl, 1:nrow(parameters_autosome), continuous_time_simulation,
-                        parameters = parameters_autosome, 
-                        offspring_genotypes_autosome)
-
-all_results <- do.call(rbind, results)
-
-
-write_csv(all_results, "/lustre/miifs01/project/m2_jgu-tee/tk_output/sim_results_complete.csv")
-
-
-
+continuous_time_simulation(row = row_number, 
+                           parameters = params, 
+                           inheritance_scheme = offspring_genotypes_autosome)
