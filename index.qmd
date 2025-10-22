@@ -1,5 +1,5 @@
 ---
-title: "When not to avoid inbreeding: a gene's eye view perspective"
+title: "The evolutionary conflicts of inbreeding"
 author: "Thomas Keaney, Arvid Agren and Hanna Kokko"
 execute: 
   warning: false
@@ -51,7 +51,7 @@ library(profvis) # breakdown of complex functions
 library(bench) # individual functions
 ```
 
-# PLotting results from the inclusive fitness model
+# Plotting results from the inclusive fitness model
 
 We find the inbreeding tolerance thresholds with strict polygyny are
 
