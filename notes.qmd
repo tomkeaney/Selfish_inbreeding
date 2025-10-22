@@ -122,5 +122,10 @@ Something to think about is how we set genetics to affect the expression of inbr
 
 Females don't get direct benefits from inbreeding as easily as males, because they need to mate AND secure a breeding site. Breeding earlier than otherwise expected doesn't help as much.
 
+## Extension ideas
 
+### Exploring the genetic implications of inbreeding
 
+### How does ecology affect inbreeding?
+
+- dispersal costs/discrimination costs i.e. going unmated (Waser 1986)

@@ -51,530 +51,269 @@ library(profvis) # breakdown of complex functions
 library(bench) # individual functions
 ```
 
-# The model
+# PLotting results from the inclusive fitness model
 
-To model the inclusive fitness consequences of inbreeding, four components that contribute to allele copy propagation need to be accounted for:
+We find the inbreeding tolerance thresholds with strict polygyny are
 
-1.  The number of offspring that inherit the focal allele when outcrossing: $\frac{1}{2}(1 + F_\mathrm{A})n$, where $F_\mathrm{A}$ is the inbreeding coefficient of the individual expressing the inbreeding gene.
+\begin{align}
+  \delta_{\mathrm{f},i}^* = \frac{rc_{\mathrm{m},i}F_\mathrm{m} + rc_{\mathrm{m},i}}{c_{\mathrm{f},i}F_\mathrm{f} + rc_{\mathrm{m},i}F_\mathrm{m} + rc_{\mathrm{m},i} + c_{\mathrm{f},i}} \label{female_new_threshold}
+\end{align}
 
-2.  The reduction in offspring produced due to inbreeding depression: $\delta$
+\begin{align}
+  \delta_{\mathrm{m},i}^* = \frac{c_{\mathrm{m},i} + c_{\mathrm{m},i}F_\mathrm{m}}{c_{\mathrm{m},i} + c_{\mathrm{m},i}F_\mathrm{m} + rc_{\mathrm{f},i} + rc_{\mathrm{f},i}F_\mathrm{f}}. \label{male_new_threshold}    
+\end{align}
 
-3.  The indirect fitness gain (offspring that inherit the focal allele from the focal individual's mate) due to inbreeding: $\frac{1}{2}(1 + F_\mathrm{R})(1-\delta)rn$, where $r$ is the genealogical relatedness coefficient and $F_\mathrm{R}$ is the inbreeding coefficient of the opposite-sex recipient individual that does not express the inbreeding gene.
+We use these equations to produce Figure 1
 
-4. the reproductive value $v_i$ of each individual to the gene in question ($i$ once again indexes the sex of each interactant). 
-
-A female's inclusive fitness following a single inbred mating is:
-
-$$ W_\mathrm{f}=v_\mathrm{f}\frac{1}{2}(1+F_\mathrm{f})n(1 - \delta) + v_\mathrm{m}\frac{1}{2}(1+F_\mathrm{m})rn(1 - \delta) \qquad$$ {#eq-f_inbreeding}
-
-, while fitness from a single outbred mating is simply $v_\mathrm{f}\frac{1}{2}(1+F_\mathrm{f})n$. The ratio $\frac{r(1+F_\mathrm{m})}{1+F_\mathrm{f}}$ is Hamilton's (1972) gamete for gamete coefficient of relatedness, which when weighted by reproductive value $\frac{v_\mathrm{m}r(1+F_\mathrm{m})}{v_\mathrm{m}(1+F_\mathrm{f})}$, is his life for life formulation of the relatedness coefficient (see Ubeda and Gardner 2017 for a similar use-case). In the autosomal case, $v_\mathrm{f} = v_\mathrm{m}$ and there is no reason to a priori expect $F_\mathrm{f} \neq F_\mathrm{m}$. This is not yet well expressed by my notation, but an additional, implicit assumption here is that the inbreeding coefficient for an inbreeding individual equals the inbreeding coefficient for an individual that outcrosses. For now let's assume that is correct. I shall return to this point later. It follows that when $(1 + r)(1 - \delta) \gt 1$ the inclusive fitness of a female expressing the inbreeding allele exceeds mean female fitness, when considering only autosomal genes.
-
-Solving @eq-f_inbreeding for $\delta$:
-
-$$\delta_\mathrm{f} \lt \frac{r}{1 + r} \qquad$$ {#eq-f_classic_inequality}
-
-which for varying values of $r$ looks like this:
-
-```{r, echo=TRUE}
-inbreeding_maximum_function <- function(r){
-  r / (1 + r)}
-
-parameters <- expand_grid(r = seq(from = 0, to = 1, by = 0.05),
-                          delta = seq(from = 0, to = 1, by = 0.05))
-
-r <- parameters %>% distinct(r)
-
-inbreeding_equilibria <- 
-  map_dfr(r, inbreeding_maximum_function) %>% 
-  rename(depression_threshold = r) %>% 
-  bind_cols(r)
-
-inbreeding_equilibria %>% 
-  ggplot(aes(x = r, y = depression_threshold)) +
-  geom_line(linewidth = 0.8) + 
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(x = '_r_, the individual-level relatedness coefficient',
-       y = ~delta~'(inbreeding depression)') +
-  scale_x_continuous(expand = c(0, 0.009)) + 
-  scale_y_continuous(expand = c(0, 0)) +
-  theme_bw() +
-  theme(text = element_text(size = 16),
-        axis.title.x = element_markdown())
-# (prop fitness lost)\n that can be tolerated"
-```
-
-The parameter space above the curve shows where inbreeding avoidance is favoured by selection, while the parameter space below the curve shows where inbreeding preference is favoured.
-
-## Accounting for sex differences in genetic architecture
-
-As stated above, inclusive fitness in the absence of inbreeding depression is $(1 + r)n$. Here, $r$ represents the correlation between genotypes carried by interacting females and males, under the implicit assumption that both sexes have equal reproductive value for . That is, $r$ is quantified at the level of the individual. However, given that there is sexual dimorphism in genetic architecture for many taxa, $r$ does not sufficiently represent the correlation between genotypes for all loci. To model indirect allele propagation under inbreeding for specific regions of the genome, we multiply $r$ with the new term $a_{\mathrm{p},i}$, the probability that a locus present in the soma of one sex is also present in a gamete of an opposite sex mating partner of the $i^{th}$ sex.
-
-$a_{\mathrm{p},i}$ quantifies the potential value of a mating partner for a focal allele. However, in the same way, we must also consider the value of the individual carrying the focal allele. Let this be $a_{\mathrm{s},i}$, the probability that a locus present in the soma of of an individual is also present in a gamete of that individual. The direct component of fitness accrued becomes $a_{\mathrm{s},i}n(1 - \delta)$, while indirect allele propagation is approximated by $ra_{\mathrm{p},i}n(1 - \delta)$. Inbreeding is favoured in females when
-
-$$a_{\mathrm{s,f}}n(1 - \delta) + ra_{\mathrm{p,m}}n(1 - \delta) > a_{\mathrm{s,f}}n \qquad$$ {#eq-new_f_inbreeding}
-
-where homozygosity is assumed to be high for outcrossing alleles in initially outbreeding populations.
-
-To get a feel for what this modification does, consider an allele found at a diploid, autosomal locus. In this case, all of the gametes produced by the focal individual or a relative possess this locus, where they could potentially carry alleles identical by descent. Here, $a_{\mathrm{s},i} = a_{\mathrm{p},i} = 1$ and the indirect component of inclusive fitness is dictated solely by $r$. The results for this autosomal scenario are presented in Parker (1979), Kokko and Ots (2006) and others who have explored this topic. In contrast, an inbreeding preference allele present at a locus on a Y or W chromosome has no opportunity to propagate any alleles identical by descent through inbreeding, as these chromosomes are not carried by the gametes of the opposite sex mating partner. In this case $a_{\mathrm{p},i} = 0$ when considering a relative's gametes and $a_{\mathrm{s},i} = 0.5$ with respect to the focal individual's gametes. However, alleles on these hemizygous chromosomes still suffer the costs of inbreeding depression, which is a result of increased homozygosity for deleterious recessive alleles throughout the genome. Conflict over the expression of inbreeding preference between alleles present on autosomes and those present on hemizygous sex chromosomes is immediately clear.
-
-X- or Z-linked loci present an interesting intermediate case, with sex-specific values for $a_{\mathrm{p},i}$ and $a_{\mathrm{s},i}$. When the inbreeding locus is carried by the sex with homozygous sex chromosomes, $a_{\mathrm{s},i} = 1$, but $a_{\mathrm{p},i}$ is half that of autosomal loci, whereas when the locus is found within the hemizygous sex $a_{\mathrm{s},i} = 0.5$ and $a_{\mathrm{p},i} = 1$. Using loci on the X as an example, those present in a XX female are only found in \~50% of a interacting males gametes, as the remaining 50% carry Y chromosomes (assuming an even primary sex ratio). When an X-linked locus is found in a male, an interacting female's gametes all carry X chromosomes and $a_{\mathrm{p,f}} = 1$.
-
-The X/Z situation appears additionally complex because there may be an element of frequency dependence to the kin selected benefits. When an inbreeding allele on an autosome is rare, then the chance of a relative carrying two copies is low, whereas when the allele is common, this chance is much higher. Rarity could therefore lead to similar fitness outcomes for autosomal and X/Z linked alleles (when present in the hemizygous sex), while commonality of the allele likely roughly equates to the conflicting situation outlined in the above paragraph. However, alleles favoured by kin selection rapidly become common within families, even whilst rare across the population (Fisher, 1930). This effect is especially pronounced with inbreeding, which independently increases the frequency of homozygotes within families. In @sec-familysim, we simulated this for autosomal, X- and Z-linked loci which confirmed that homozygotes rapidly become the most common genotype within inbreeding families.
-
-**Table 1.** Values of the parameter $a_{\mathrm{s},i}$ and $a_{\mathrm{p},i}$ parameters for different regions of the genome. Note that cytoplasmic chromosomes are assumed to have exclusive maternal inheritance.
-
-```{r}
-tibble(`Prob. that focal individual gametes carry focal locus` = c(1, 1, 1, 0.5, 0.5, 0),
-  `Prob. that opposite sex gametes carry focal locus` = c(1, 0.5, 0, 1, 0, 1),
-       `Relevant cases` = c("Autosomes in either sex", 
-                            "X chromosomes in females, Z chromosomes in males",
-                            "Cytoplasmic chromosomes in females",
-                            "X chromosomes in males, Z chromosomes in females",
-                            "Y chromosomes in males, W chromosomes in females",
-                            "Cytoplasmic chromosomes in males")) %>% 
-  pander(split.cell = 20, split.table = Inf)
-```
-
-Once again we can find the condition where breeding with a relative returns greater fitness than an inbreeding avoidance strategy, this time accounting for genetic architecture
-
-$$\delta_\mathrm{f} \lt \frac{ra_\mathrm{p,m}}{a_\mathrm{s,f} + ra_\mathrm{p,m}}$$
-
-```{r}
-
-inbreeding_equilibria_2 <- expand_grid(r = seq(from = 0, to = 1, by = 0.01),
-                          a_m = c(0, 0.5, 1),
-                          a_f = c(1, 0.5)) %>% 
-  mutate(Case = case_when(a_m == 0 & a_f == 0.5 ~ "W or Cytoplasmic",
-                          a_m == 0.5 & a_f == 1 ~ "X",
-                          a_m == 1 & a_f == 1 ~ "Autosome",
-                          a_m == 1 & a_f == 0.5 ~ "Z")) %>% 
-  filter(!is.na(Case)) %>% 
-  mutate(depression_threshold =  (r*a_m / (r*a_m + a_f)))
-
-inbreeding_equilibria_2 %>% 
-  ggplot(aes(x = r, y = depression_threshold, group = Case, label = Case)) +
-  geom_textline(linewidth = 0.8, size = 5) + 
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(x = '_r_, the individual-level relatedness coefficient',
-       y = ~ paste(delta[f], " (Inbreeding depression)")
-       ) +
-  #ylab(~ paste(delta[f], " (Inbreeding depression)"))
-  scale_x_continuous(expand = c(0.009, 0)) + 
-  scale_y_continuous(expand = c(0.025, 0)) +
-  theme_bw() +
-  theme(text = element_text(size = 18),
-        legend.position = "none",
-        axis.title.x = element_markdown())
-```
-
-Figure XX. curves show the extent of inbreeding depression, expressed as a reduction in offspring produced, at which inbreeding no longer increases inclusive fitness.\
-$~$
-
-## Differences between the sexes beyond genetic architecture
-
-In his 1979 book chapter, Parker considered the inclusive fitness results of breeding with a relative and identified that females and males should have different tolerances for inbreeding depression. The key departure from the unlimited polygyny case presented in the above equations is that a cost to future reproductive success is included for males, i.e. due to finite sperm production, parental care, or harmful mating behaviour such as sexual cannibalism.
-
-Parker modelled the condition for monandrous females to prefer incestuous matings when also presented with an outcrossing opportunityas
-
-$$n(1 - \delta) + rn(1-\delta) - crn \gt n$$ where the new third term on the lefthand side of the equation is the number of alleles that were not indirectly propagated by her male relative by future outcrossing. $c$ is the cost of the present mating, relative to what is lost for a female. This can be considered a ratio of parental investment. When $c = 1$ parental investment in the current bout of reproduction is even between the sexes. Alternatively, if males only contribute cheaply produced sperm to an incestuous mating, the cost of mating is likely very small relative to females i.e. $c ~ 0$.
-
-We add $a_\mathrm{f}$ and $a_\mathrm{m}$ to the equation and letting $n = 1$, reduce to
-
-$$a_\mathrm{s,f}(1-\delta) + ra_\mathrm{p,m}(1-\delta) - ra_\mathrm{p,m}c \gt a_\mathrm{s,f}$$
-
-where the inbreeding depression threshold is
-
-$$\delta_\mathrm{f} = \frac{ra_\mathrm{p,m} - ra_\mathrm{p,m}c}{a_\mathrm{s,f} + ra_\mathrm{p,m}}$$
-
-For males, Parker found that selection would favour inbreeding with a sister (full-sib) who could otherwise outcross when:
-
-$$n(1 - \delta) + rn(1- \delta) - cn \gt rn$$
-
-this time, we add $a_\mathrm{s,m}$ and $a_\mathrm{p,f}$ to the inequality and letting $n = 1$, simplify to:
-
-$$a_\mathrm{s,m}(1-\delta) + ra_\mathrm{p,f}(1-\delta) - a_\mathrm{s,m}c \gt ra_\mathrm{p,f}$$
-
-We can again find the threshold below which mating with a relative returns greater fitness than an inbreeding avoidance strategy:
-
-$$\delta_\mathrm{m} = \frac{a_\mathrm{s,m} - a_\mathrm{s,m}c}{a_\mathrm{s,m} + ra_\mathrm{p,f}}.$$ Letting $c = 0$, we find
-
-$$\delta_\mathrm{m} = \frac{a_\mathrm{s,m}}{a_\mathrm{s,m} + ra_\mathrm{p,f}},$$ the inbreeding depression threshold when mating is cheap for males.
-
-## Plotting sexual and intragenomic conflicts
-
-### When is inbreeding favoured in each sex?
-
-In the figure below, the curves indicate the level of inbreeding depression that can be tolerated for a given value of individual-level relatedness. The plot is split into panels by $c$, the cost of mating for males relative to females.
-
-```{r, fig.height=6.5}
-male_mating_cost_data <- 
-  expand_grid(r = seq(from = 0, to = 1, by = 0.01),
-              a_m = c(0, 0.5, 1),
-              a_f = c(0, 0.5, 1),
-              c = 0,
-              Sex = c("Female", "Male")) %>% 
-  mutate(inbreeding_depression = case_when(Sex == "Female" ~ (r*a_m - r*a_m*c) / (r*a_m + a_f),
-                                           Sex == "Male" ~ (a_m - a_m*c) / (r*a_f + a_m))) %>% 
-  mutate(Case = case_when(a_m == 0 & a_f == 1 & Sex == "Female" ~ "W or Cytoplasmic",
-                          a_m == 0.5 & a_f == 1 & Sex == "Female" ~ "X",
-                          a_m == 1 & a_f == 0.5 & Sex == "Female" ~ "Z",
-                          a_m == 1 & a_f == 1 ~ "Autosome",
-                          a_m == 0 & a_f == 1 & Sex == "Male" ~ "Cytoplasmic",
-                          a_m == 1 & a_f == 0 & Sex == "Male"~ "Y",
-                          a_m == 1 & a_f == 0.5 & Sex == "Male" ~ "Z",
-                          a_m == 0.5 & a_f == 1 & Sex == "Male" ~ "X")) %>% 
-           filter(!is.na(Case))
-
-  male_mating_cost_data %>% 
-  ggplot(aes(x = r, y = inbreeding_depression, linetype = Case)) +
-  geom_line(linewidth  = 0.8) + 
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(y = ~delta~'(inbreeding depression)', 
-       x = '_r_, the individual-level relatedness coefficient',
-       linetype = "Chromosome type") +
-  scale_x_continuous(expand = c(0.009, 0), breaks = c(0, 0.25, 0.5, 0.75)) + 
-  scale_y_continuous(expand = c(0.01, 0)) +
-  facet_wrap(Sex~c, nrow = 2, labeller = label_glue('Sex: {Sex}\nMale mating cost: {c}')) +
-  theme_bw() +
-  theme(text = element_text(size = 14),
-        strip.background = element_rect(fill = "Aliceblue", linewidth = .5),
-        axis.title.x = element_markdown(),)
-```
-
-### When is there evolutionary conflict over inbreeding?
+**Prepare for plotting**
 
 ```{r}
 resolution <- 200
 
-#resolution <- 20
-
-parameters <- 
-  expand_grid(
-    r = seq(0, 1, length = resolution),
-    a_m = c(0, 0.5, 1),
-    a_f = c(0, 0.5, 1),
-    c = c(0, 0.25, 0.5, 0.75, 1),
-    D = seq(0, 1, length = resolution)) # D represents inbreeding depression)
-
 analytical_results <-
-  parameters %>% 
-  mutate(female_inbreeding_fitness = a_f*(1-D) + (r*a_m*(1-D)) - (r*a_m*c),
-         male_inbreeding_fitness = a_m*(1-D) + r*a_f*(1-D) - a_m*c,
-         female_outbreeding_fitness = a_f,
-         male_outbreeding_fitness = r*a_f,
+    expand_grid(
+    r = seq(0, 1, length = resolution),
+    c_m = c(0, 0.5, 1),
+    c_f = c(0, 0.5, 1),
+    F_m = c(0, 1),
+    F_f = c(0, 1),
+    D = seq(0, 1, length = resolution)) %>%  # D represents inbreeding depression) %>% 
+  mutate(female_inbreeding_fitness = c_f*((1+F_f)/2)*(1-D) + (r*c_m*((1+F_m)/2)*(1-D)),
+         male_inbreeding_fitness = c_m*((1+F_m)/2)*(1-D) + r*c_f*((1+F_f)/2)*(1-D),
+         female_outbreeding_fitness = c_f*((1+F_f)/2),
+         male_outbreeding_fitness = r*c_f*((1+F_f)/2),
          female_fitness_contrast = female_inbreeding_fitness - female_outbreeding_fitness, # this is close to a selection coefficient
-         male_fitness_contrast = male_inbreeding_fitness - male_outbreeding_fitness)
+         male_fitness_contrast = male_inbreeding_fitness - male_outbreeding_fitness,
+         qual_f_contrast = if_else(female_fitness_contrast > 0, 1, -1),
+         qual_m_contrast = if_else(male_fitness_contrast > 0, 1, -1))
+
+# Extract results for females  
+  
+Within_organism_conflict_females <-
+  analytical_results %>%
+  select(1:6, female_fitness_contrast, qual_f_contrast) %>%
+  mutate(Case = case_when(c_m == 1 & c_f == 1 & F_m == F_f ~ "Autosome",
+                          c_m == 0.5 & c_f == 1 & F_m == 1 ~ "X",
+                          c_m == 1 & c_f == 0.5 & F_f == 1 ~ "Z",
+                          c_m == 0 & c_f == 1 & F_m == 0 & F_f == 1 ~ "W",
+                          c_m == 0 & c_f == 1 & F_m == 1 & F_f == 1 ~ "Cytoplasmic (m)",
+                          c_m == 1 & c_f == 0 & F_m == 1 & F_f == 1 ~ "Cytoplasmic (p)"),
+         Inbreeding_speed = case_when(Case == "X" & F_f == 0 |
+                                        Case == "Z" & F_m == 0 |
+                                        Case == "Autosome" & F_f == 0 ~ "Slow",
+                                      .default = "Fast")) %>% 
+  filter(!is.na(Case),
+         Inbreeding_speed == "Fast") %>%
+  select(-c(c_f, c_m, F_f, F_m, Inbreeding_speed)) %>% 
+  pivot_wider(names_from = Case, values_from = qual_f_contrast, id_cols = c(r, D)) %>% 
+  mutate(conflict = case_when(Z < 0 ~ 1,
+                              Autosome < 0 ~ 2,
+                              X < 0 ~ 3,
+                              W < 0 & `Cytoplasmic (m)` < 0 ~ 4))
+
+# Extract results for males 
+
+Within_organism_conflict_males <-
+  analytical_results %>%
+  select(1:6, male_fitness_contrast, qual_m_contrast) %>%
+  mutate(Case = case_when(c_m == 1 & c_f == 1 & F_m == F_f ~ "Autosome",
+                          c_m == 0.5 & c_f == 1 & F_m == 1 ~ "X",
+                          c_m == 1 & c_f == 0.5 & F_f == 1 ~ "Z",
+                          c_m == 1 & c_f == 0 & F_m == 1 & F_f == 0 ~ "Y",
+                          c_m == 0 & c_f == 1 & F_m == 1 & F_f == 1 ~ "Cytoplasmic (m)",
+                          c_m == 1 & c_f == 0 & F_m == 1 & F_f == 1 ~ "Cytoplasmic (p)"),
+         Inbreeding_speed = case_when(Case == "X" & F_f == 0 |
+                                        Case == "Z" & F_m == 0 |
+                                        Case == "Autosome" & F_f == 0 ~ "Slow",
+                                      .default = "Fast")) %>% 
+  filter(!is.na(Case),
+         Inbreeding_speed == "Fast") %>%
+  select(-c(c_f, c_m, F_f, F_m, Inbreeding_speed)) %>% 
+  pivot_wider(names_from = Case, values_from = qual_m_contrast, id_cols = c(r, D)) %>% 
+  mutate(conflict = case_when(Z < 0 ~ 1,
+                              Autosome < 0 ~ 2,
+                              X < 0 ~ 3,
+                              `Cytoplasmic (m)` < 0 ~ 4))
+
+# calculate the inbreeding thresholds for the plot
+
+figure_1_thresholds <- 
+  expand_grid(r = seq(from = 0, to = 1, by = 0.01),
+              c_m = c(0, 0.5, 1),
+              c_f = c(0, 0.5, 1),
+              F_m = c(0, 1),
+              F_f = c(0, 1),
+              Sex = c("Female", "Male")) %>% 
+  mutate(D = case_when(Sex == "Female" ~ (r*c_m*F_m + r*c_m) / 
+                         (r*c_m*F_m + r*c_m + c_f*F_f + c_f),
+                       Sex == "Male" ~ (c_m + c_m*F_m) / 
+                         (c_m + c_m*F_m + r*c_f + r*c_f*F_f))) %>% 
+  mutate(Case = case_when(c_m == 1 & c_f == 1 & F_m == F_f ~ "Autosome",
+                          c_m == 0.5 & c_f == 1 & F_m == 1 ~ "X",
+                          c_m == 1 & c_f == 0.5 & F_f == 1 ~ "Z",
+                          c_m == 0 & c_f == 1 & F_m == 0 & F_f == 1 & Sex == "Female" ~ "W & Cytoplasmic (m)",
+                          c_m == 1 & c_f == 0 & F_m == 1 & F_f == 0 & Sex == "Male"~ "Y & Cytoplasmic (p)",
+                          c_m == 0 & c_f == 1 & F_m == 1 & F_f == 1 & Sex == "Male" ~ "Cytoplasmic (m)",
+                          c_m == 1 & c_f == 0 & F_m == 1 & F_f == 1 & Sex == "Female" ~ "Cytoplasmic (p)"),
+         Inbreeding_speed = case_when(Case == "X" & F_f == 0 |
+                                        Case == "Z" & F_m == 0 |
+                                        Case == "Autosome" & F_m == 0 ~ "Slow",
+                                      .default = "Fast")) %>% 
+  filter(!is.na(Case),
+         Inbreeding_speed == "Fast")
+
+threshold_1 <- 
+  figure_1_thresholds %>% 
+  # remove labels that don't plot well
+  filter(Case != "Y & Cytoplasmic (p)",
+         Case != "Cytoplasmic (p)")
+
+threshold_2 <- 
+  figure_1_thresholds %>% 
+  # remove labels that don't plot well
+  filter(Case == "Y & Cytoplasmic (p)" |
+         Case == "Cytoplasmic (p)")
+  
 ```
 
-To quantify conflict in its various forms we use a version of the *I* index presented in [Innocenti and Morrow (2010)](https://academic.oup.com/evolut/article/64/9/2775/6854370):
-
-$$I = \frac{s_\mathrm{i} s_\mathrm{j}}{\sqrt{\frac{{s_\mathrm{i}}^2 + {s_\mathrm{j}}^2}{2}}}$$ where $s_\mathrm{i}$ and $s_\mathrm{j}$ are the selection coefficients that we calculate for inbreeding alleles in the $i^{th}$ and $j^{th}$ context, respectively. $I$ is most extreme when selection is strong in both contexts, positive when selection is context concordant and negative when selection is antagonistic.
-
-Build a function to make this calculation easy
+Let's plot the conflict zones between chromosomes, within the sexes. These form panels *A* and *B* of Figure 1.
 
 ```{r}
-I_calculator <- function(s_i, s_j){
-  s_i * s_j / sqrt(((s_i)^2 + (s_j)^2)/2)
-}
-```
+#| fig-width: 7.5
+#| fig-height: 5.3
 
-Let's plot the conflict zones between chromosomes, within the sexes:
+greens <- c("#4c9b82", "#6cc08b", "#97e196", "#d3f2a3") 
 
-```{r}
+#d3f2a3,#97e196,#6cc08b,#4c9b82,#217a79,#105965,#074050
 
-oranges <- c("#ffe6b7", "#ffd06f", "#f7aa58", "#ef8a47", "#e76254") 
-
-Intragenomic_conflict_females <-
-  analytical_results %>%
-  select(1:5, female_fitness_contrast) %>%
-  mutate(Case = case_when(a_m == 0 & a_f == 1 ~ "Cytoplasmic",
-                          a_m == 0 & a_f == 0.5 ~ "W",
-                          a_m == 0.5 & a_f == 1 ~ "X",
-                          a_m == 1 & a_f == 0.5 ~ "Z",
-                          a_m == 1 & a_f == 1 ~ "Autosome")) %>% 
-  filter(!is.na(Case)) %>% 
-  select(-c(a_f, a_m)) %>% 
-  pivot_wider(names_from = Case, values_from = female_fitness_contrast) %>% 
-  mutate(`Autosome vs X` = I_calculator(Autosome, X),
-         `Z vs Autosome` = I_calculator(Autosome, Z),
-         `Autosome vs W` = I_calculator(Autosome, `W`),
-         `Autosome vs Cytoplasmic` = I_calculator(Autosome, `Cytoplasmic`),
-         `Z vs W` = I_calculator(Z, `W`),
-         `Z vs Cytoplasmic` = I_calculator(Z, `Cytoplasmic`),
-         `X vs Cytoplasmic` = I_calculator(X, `Cytoplasmic`),
-         `W vs Cytoplasmic` = I_calculator(W, `Cytoplasmic`)) %>% 
-  pivot_longer(cols = 9:16, names_to = "contrast", values_to = "Evolutionary_conflict") %>% 
-  mutate(relationship = case_when(
-    contrast == "Autosome vs X" & Autosome > 0 & X > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Autosome vs X" & Autosome < 0 & X < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Z vs Autosome" & Autosome > 0 & Z > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Z vs Autosome" & Autosome < 0 & Z < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Autosome vs W" & Autosome > 0 & `W` > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Autosome vs W" & Autosome < 0 & `W` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-        contrast == "Autosome vs Cytoplasmic" & Autosome > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Autosome vs Cytoplasmic" & Autosome < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Z vs W" & Z > 0 & `W` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "Z vs W" & Z < 0 & `W` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-        contrast == "Z vs Cytoplasmic" & Z > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "Z vs Cytoplasmic" & Z < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "X vs Cytoplasmic" & X > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "X vs Cytoplasmic" & X < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-        contrast == "W vs Cytoplasmic" & W > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "W vs Cytoplasmic" & W < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    .default = "Intragenomic conflict")) %>% 
-  mutate(contrast = fct_relevel(contrast, 
-                                "W vs Cytoplasmic",
-                                "Autosome vs X", 
-                                "Z vs Autosome",
-                                "X vs Cytoplasmic",
-                                "Autosome vs W", 
-                                "Autosome vs Cytoplasmic",
-                                "Z vs W",
-                                "Z vs Cytoplasmic")) %>% 
-  filter(c == 0)  # remove if we want more c values
-
-Intragenomic_conflict_males <-
-  analytical_results %>%
-  select(1:5, male_fitness_contrast) %>%
-  mutate(Case = case_when(a_m == 0 & a_f == 1 ~ "Cytoplasmic",
-                          a_m == 0.5 & a_f == 1 ~ "X",
-                          a_m == 0.5 & a_f == 0 ~ "Y",
-                          a_m == 1 & a_f == 0.5 ~ "Z",
-                          a_m == 1 & a_f == 1 ~ "Autosome")) %>% 
-  filter(!is.na(Case)) %>% 
-  select(-c(a_f, a_m)) %>% 
-  pivot_wider(names_from = Case, values_from = male_fitness_contrast) %>% 
-  mutate(`Autosome vs X` = I_calculator(Autosome, X),
-         `Z vs Autosome` = I_calculator(Autosome, Z),
-         `Y vs Autosome` = I_calculator(Autosome, Y),
-         `Autosome vs Cytoplasmic` = I_calculator(Autosome, Cytoplasmic),
-         `Y vs X` = I_calculator(Y, X),
-         `X vs Cytoplasmic` = I_calculator(X, Cytoplasmic),
-         `Z vs Cytoplasmic` = I_calculator(Z, Cytoplasmic),
-         `Y vs Cytoplasmic` = I_calculator(Y, Cytoplasmic),) %>% 
-  pivot_longer(cols = 9:16, names_to = "contrast", values_to = "Evolutionary_conflict") %>% 
-  mutate(relationship = case_when(
-    contrast == "Autosome vs X" & Autosome > 0 & X > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Autosome vs X" & Autosome < 0 & X < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Z vs Autosome" & Autosome > 0 & Z > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Z vs Autosome" & Autosome < 0 & Z < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Y vs Autosome" & Autosome > 0 & Y > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Y vs Autosome" & Autosome < 0 & Y < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Autosome vs Cytoplasmic" & Autosome > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Autosome vs Cytoplasmic" & Autosome < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Y vs X" & X > 0 & Y > 0 ~
-      "Inbreeding favoured in both contexts",
-    contrast == "Y vs X" & X < 0 & Y < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "X vs Cytoplasmic" & X > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "X vs Cytoplasmic" & X < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts", 
-    
-    contrast == "Z vs Cytoplasmic" & Z > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "Z vs Cytoplasmic" & Z < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    contrast == "Y vs Cytoplasmic" & Y > 0 & `Cytoplasmic` > 0 ~
-      "Inbreeding favoured in both contexts", 
-    contrast == "Y vs Cytoplasmic" & Y < 0 & `Cytoplasmic` < 0 ~
-      "Inbreeding deleterious in both contexts",
-    
-    .default = "Intragenomic conflict")) %>% 
-  mutate(contrast = fct_relevel(contrast, 
-                                "Autosome vs X", 
-                                "Z vs Autosome",
-                                "Y vs Autosome",
-                                "Y vs X", 
-                                "X vs Cytoplasmic",
-                                "Autosome vs Cytoplasmic",
-                                "Z vs Cytoplasmic", 
-                                "Y vs Cytoplasmic")) %>% 
-  filter(c == 0)  # remove if we want more c values
-    
-
-make_genomic_conflict_plot <- 
-  function(data, enter_title, colour_pal){
-    data %>% 
-      ggplot(aes(x = r, y = D)) +
-      geom_blank() +
-      geom_tile(data = data %>% filter(relationship == "Intragenomic conflict"),
-                aes(fill = Evolutionary_conflict*-1)) + 
-      #geom_tile(data = data,
-      #         aes(fill = Evolutionary_conflict)) + 
-      scale_fill_gradientn(colours = colour_pal, limits = c(0, 0.6), #na.value = "white",
-                           breaks = c(0, 0.6),
-                           labels = c("Weaker conflict", "Stronger conflict")) +
-      labs(fill = "Evolutionary concordance") +
-      new_scale_fill() +
-      geom_tile(data = data %>% filter(relationship != "Intragenomic conflict"),
-                aes(fill = relationship), alpha = 0.75) +
-      scale_fill_manual(values = c("#fbe6c5", "#d2fbd4"), 
-                        labels = c("Inbreeding deleterious\nin both contexts", 
-                                   "Inbreeding favoured\nin both contexts")) +
-      stat_contour(aes(z = Evolutionary_conflict*-1), colour = "black", binwidth = 25,
-                   breaks = c(0, 0.2, 0.4, 0.6)) +
-      facet_wrap(~contrast, nrow = 3,
-                 scales = "free", strip.position = c("top"),
-                 labeller = label_glue('{`contrast`}')) +
-      labs(fill = "Evolutionary concordance",
-           y = ~delta~'(inbreeding depression)', 
-           x = '_r_, the individual-level relatedness coefficient',
-           title = enter_title) +
-      scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.25, 0.5, 0.75)) + 
-      scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
-      theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
-            panel.grid.minor = element_blank(),
-            strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
-            axis.title.x = element_markdown(),
-            plot.title = element_text(hjust = 0.5, size = 12))
-  }
-
-icf <- make_genomic_conflict_plot(Intragenomic_conflict_females, "A. Female inter-chromosomal conflict", oranges)
-icm <- make_genomic_conflict_plot(Intragenomic_conflict_males, "B. Male inter-chromosomal conflict", oranges)
-```
-
-```{r, fig.width=9.4, fig.height=6.4}
-icf
-```
-
-**Figure XX**. the parameter space where the expression of inbreeding in females increases the propagation of one type of chromosome, but has an opposite, deleterious affect on the propagation of a second chromosome class; a so called inter-chromosomal conflict.
-
-The plot shows regions of inter-chromosomal conflict within females, where chromosome classes with a high probability of encountering opposite-sex gametes carrying the inbreeding locus have high fitness in the conflict zone. In some cases, the fitness interests of chromosome classes align e.g. cytoplasmic and W chromosomes.
-
-```{r, fig.width=9.4, fig.height=6.4}
-icm
-```
-
-**Figure XX**. the parameter space where the expression of inbreeding in males increases the propagation of one type of chromosome, but has an opposite, deleterious affect on the propagation of a second chromosome class.
-
-Here inter-chromosomal conflict is plotted when males express the inbreeding allele. Importantly, the direction of selection for inbreeding is reversed in comparison to the female case in the zones of conflict. In males, chromosome classes with high probabilities of inbreeding loci being found in female gametes now have low fitness in the conflict space.
-
-Now let's have a look at chromosome specific conflict between the sexes
-
-```{r}
-autosomal_data <-
-  analytical_results %>%
-  filter(a_f == 1, a_m == 1, c != 1, c != 0.25) %>% 
-  mutate(Evolutionary_conflict = I_calculator(female_fitness_contrast, male_fitness_contrast)) %>% 
-  mutate(relationship = 
-           case_when(female_fitness_contrast < 0 & male_fitness_contrast > 0 
-                     ~ "Sexual conflict",
-                     female_fitness_contrast < 0 & male_fitness_contrast < 0 
-                     ~ "Inbreeding deleterious in both contexts",
-                     female_fitness_contrast > 0 & male_fitness_contrast > 0 
-                     ~ "Inbreeding favoured in both contexts"),
-         Location = "Autosome") 
-
-X_data <- 
-  analytical_results %>% 
-  filter(a_m == 0.5, a_f == 1, c != 1, c != 0.25) %>%  
-  mutate(Evolutionary_conflict = I_calculator(female_fitness_contrast, male_fitness_contrast)) %>% 
-  mutate(relationship = 
-           case_when(female_fitness_contrast < 0 & male_fitness_contrast > 0 
-                     ~ "Sexual conflict",
-                     female_fitness_contrast < 0 & male_fitness_contrast < 0 
-                     ~ "Inbreeding deleterious in both contexts",
-                     female_fitness_contrast > 0 & male_fitness_contrast > 0 
-                     ~ "Inbreeding favoured in both contexts"),
-         Location = "X")
-
-Z_data <-
-  analytical_results %>% 
-  filter(a_f == 0.5, a_m == 1, c != 1, c != 0.25) %>% 
-  mutate(Evolutionary_conflict = I_calculator(female_fitness_contrast, male_fitness_contrast)) %>% 
-  mutate(relationship = 
-           case_when(female_fitness_contrast < 0 & male_fitness_contrast > 0 
-                     ~ "Sexual conflict",
-                     female_fitness_contrast < 0 & male_fitness_contrast < 0 
-                     ~ "Inbreeding deleterious in both contexts",
-                     female_fitness_contrast > 0 & male_fitness_contrast > 0 
-                     ~ "Inbreeding favoured in both contexts"),
-         Location = "Z")
-
-plotting_data <- bind_rows(autosomal_data, X_data, Z_data) %>% filter(c == 0)
-
-Sexual_conflict_plot <-
-  plotting_data %>%
+fig_1a <-
+  Within_organism_conflict_females %>% 
   ggplot(aes(x = r, y = D)) +
   geom_blank() +
-  geom_tile(data = plotting_data %>% filter(relationship == "Sexual conflict"),
-            aes(fill = Evolutionary_conflict*-1)) + 
-  scale_fill_gradientn(colours = oranges, limits = c(0, 0.6),
-                       breaks = c(0, 0.6),
-                       labels = c("Weaker conflict", "Stronger conflict")) +
-  labs(fill = "Evolutionary conflict") +
-  new_scale_fill() +
-  geom_tile(data = plotting_data %>% filter(relationship != "Sexual conflict"),
-            aes(fill = relationship), alpha = 0.75) +
-  scale_fill_manual(values = c("#fbe6c5", "#d2fbd4"), 
-                    labels = c("Inbreeding deleterious\nin both contexts", 
-                               "Inbreeding favoured\nin both contexts")) +
-  stat_contour(aes(z = Evolutionary_conflict*-1), colour = "black", binwidth = 25,
-               breaks = c(0, 0.2, 0.4, 0.6)) +
-  facet_wrap(~Location, nrow = 3,
-             scales = "free", strip.position = c("top"),
-             labeller = label_glue('{`Location`}')) +
-      labs(x = "Individual-level relatedness coefficient",
-           y = "Inbreeding depression",
-       fill = "Evolutionary concordance",
-       title = "C. Intra-chromosomal sexual conflict") +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.25, 0.5, 0.75)) + 
-  scale_y_continuous(expand = c(0, 0)) +
+  geom_tile(aes(fill = conflict)) +
+  scale_fill_gradientn(colours = greens) +
+  guides(fill="none") +
+  geom_textline(data = threshold_1 %>% filter(Sex == "Female"), 
+                aes(x = r, y = D, group = Case, label = Case), size = 4, vjust = -0.25) +
+  geom_textline(data = threshold_2 %>% filter(Sex == "Female"), 
+                aes(x = r, y = D, group = Case, label = Case), size = 4, vjust = 1.2) +
+  coord_fixed() +
+  labs(y = ~delta~'(inbreeding depression)', 
+       x = '_r_ (Individual-level relatedness)',
+       title = "Female within-organism conflict") +
+  scale_x_continuous(expand = c(0, 0), 
+                     breaks = c(0, 0.25, 0.5, 0.75, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        panel.grid.minor = element_blank(),
         strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
-        axis.title.x = element_markdown(),
-        plot.title = element_text(hjust = 0.5, size = 12))
+        axis.title.x = element_markdown(size =14),
+        axis.title.y = element_text(size=14),
+        axis.text = element_text(size = 12),
+        plot.title = element_text(hjust = 0.5, size = 14))
+
+fig_1b <-
+  Within_organism_conflict_males %>% 
+  ggplot(aes(x = r, y = D)) +
+  geom_blank() +
+  geom_tile(aes(fill = conflict)) +
+  scale_fill_gradientn(colours = greens) +
+  guides(fill="none") +
+  geom_textline(data = threshold_1 %>% filter(Sex == "Male"), 
+                aes(x = r, y = D, group = Case, label = Case), size = 4, vjust = -0.25) +
+  geom_textline(data = threshold_2 %>% filter(Sex == "Male"), 
+                aes(x = r, y = D, group = Case, label = Case), size = 4, vjust = 1.2) +
+  coord_fixed() +
+  labs(y = ~delta~'(inbreeding depression)', 
+       x = '_r_ (Individual-level relatedness)',
+       title = "Male within-organism conflict") +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.25, 0.5, 0.75, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + # labels = c(0, 25, 50, 75, 90)) +
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        axis.title.x = element_markdown(size =14),
+        axis.title.y = element_text(size=14),
+        axis.text = element_text(size = 12),
+        plot.title = element_text(hjust = 0.5, size = 14))
+
+top <-
+  fig_1a + fig_1b & plot_layout(guides = 'collect', axes = "collect")
+
+top
 ```
 
-```{r, fig.height=7, fig.width=10}
-#icf + icm + 
-  Sexual_conflict_plot #+ plot_layout(guides = "collect", axes = "collect")
+**Figure 1A-B**. Within-organism conflict over the expression of inbreeding. In panels \textbf{A} and \textbf{B}, contours show the the severity of inbreeding depression below which inbreeding increases the inclusive fitness of genes in a particular genomic region. Results are shown for the fast inbreeding scenario (see main text). As the fill gets darker, fewer parts of the genome have higher fitness when inbreeding is preferred over outcrossing. Cytoplasmic (m) and (p) denote cytoplasmic genes that have strict maternal and paternal inheritance, respectively.
+
+**Make Figure 1C-D**
+
+In the bottom two panels of Figure 1, we show offspring viabilities are the inbreeding tolerance threshold for alleles in each genomic region.
+
+```{r}
+fitness_loss_f <-
+  figure_1_thresholds %>% 
+  filter(r == 0.5) %>% 
+  mutate(Case = as.factor(Case),
+         Sex = case_when(Sex == "Female" ~ "delta[f]~when~r==0.5",
+                         .default = "delta[m]~when~r==0.5")) %>% 
+  filter(Sex == "delta[f]~when~r==0.5") %>% 
+  mutate(chromosome = fct_relevel(Case, c("Autosome", "X", "Z", "W & Cytoplasmic (m)",
+                                          "Cytoplasmic (p)"))) %>% 
+  ggplot(aes(x = reorder(Case, D), y = 1 - D)) +
+  geom_col(fill = "#d0e2af", alpha = 0.75) +
+  facet_wrap(~Sex, labeller = label_parsed) +
+  scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 1.01), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  labs(x = "Genomic location",
+       y = "Offspring viability relative\nto outbreeding population") +
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "black", fill = "#d0e2af"),
+        strip.text = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        axis.text.y = element_text(size = 12))
+
+fitness_loss_m <-
+  figure_1_thresholds %>% 
+  filter(r == 0.5) %>% 
+  mutate(Case = as.factor(Case),
+         Sex = case_when(Sex == "Female" ~ "delta[f]~when~r==0.5",
+                         .default = "delta[m]~when~r==0.5")) %>% 
+  filter(Sex == "delta[m]~when~r==0.5") %>% 
+  mutate(chromosome = fct_relevel(Case, c("Autosome", "X", "Z", "Y & Cytoplasmic (p)",
+                                          "Cytoplasmic (m)"))) %>% 
+  ggplot(aes(x = reorder(Case, D), y = 1 - D)) +
+  geom_col(fill = "#d0e2af", alpha = 0.75) +
+  facet_wrap(~Sex, labeller = label_parsed) +
+  scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 1.01), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  labs(x = "Genomic location",
+       y = "Offspring viability relative\nto outbreeding population") +
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "black", fill = "#d0e2af"),
+        strip.text = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        axis.text.y = element_text(size = 12))
+  
+
+    
+
+bottom <- 
+  fitness_loss_f + fitness_loss_m +
+  plot_layout(axis_titles = "collect")
+
+bottom
+
 ```
 
-**Figure XX**. conditions where loci are expected to be under intra-chromosomal sexual conflict over inbreeding preference. In regions of sexual conflict, inbreeding preference is always favoured in males, but has negative fitness consequences if expressed by females (assuming that males invest less into mating than females). Note that intra-chromosomal conflict encompasses both the intra- and inter-locus forms of sexual conflict.
+**Make Figure 1**
 
-## Make Figure SX - fix this then analytics done
+```{r}
+#| fig-width: 11
+#| fig-height: 10
+top / bottom + plot_annotation(tag_levels = 'A')
+```
 
-**Also equation numbering**
+**Figure 1**. Within-organism conflict over the expression of inbreeding. In panels \textbf{A} and \textbf{B}, contours show the the severity of inbreeding depression below which inbreeding increases the inclusive fitness of genes in a particular genomic region. Results are shown for the fast inbreeding scenario. As the fill gets darker, fewer parts of the genome have higher fitness when inbreeding is preferred over outcrossing. \textbf{C} and \textbf{D} show the lowest offspring viabilities that permit the invasion of inbreeding alleles when mating is between full-siblings. Cytoplasmic (m) and (p) denote cytoplasmic genes that have strict maternal and paternal inheritance, respectively.
+
+**Make Figure SX**
 
 ```{r, fig.width=14, fig.height=14, eval=FALSE}
 # calculate every combination
@@ -886,60 +625,9 @@ make_genomic_conflict_plot_2(Intragenomic_all_combos, oranges)
 
 ```
 
-## Make Figure 2
+**Figure SX**. all conflicts that can occur over inbreeding.
 
-We can also plot the cost to female direct reproductive output:
-
-```{r}
-
-fitness_loss_data <-
-  tibble(chromosome = c("Autosomal", "X", "Z", "Y", "W", "Cytoplasmic"),
-       a_f = c(1, 1, 0.5, 0, 0.5, 1),
-       a_m = c(1, 0.5, 1, 0.5, 0, 0)) %>% 
-  mutate("delta[f]~when~r==0.5" = 0.5*a_m / (a_f + 0.5*a_m),
-         "delta[m]~when~r==0.5" = a_m / (a_m + 0.5*a_f)) %>%
-  pivot_longer(cols = 4:5, names_to = "Sex", values_to = "Inbreeding tolerance") %>% 
-  filter(!is.na(`Inbreeding tolerance`)) 
-
-fitness_loss_f_delta <-
-  fitness_loss_data %>% 
-  filter(Sex == "delta[f]~when~r==0.5", chromosome != "Y") %>% 
-  mutate(chromosome = fct_relevel(chromosome, c("Autosomal", "X", "Z", "W", "Cytoplasmic"))) %>% 
-  ggplot(aes(x = chromosome, y = 1 - `Inbreeding tolerance`)) +
-  geom_col(fill = "#d0e2af", alpha = 0.75) +
-  facet_wrap(~Sex, labeller = label_parsed) +
-  scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 1.01), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
-  labs(x = "Genomic location",
-       y = "Female offspring production") +
-  theme_bw() +
-  theme(strip.background = element_rect(colour = "black", fill = "#d0e2af"),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14))
-
-fitness_loss_m_delta <-
-  fitness_loss_data %>% 
-  filter(Sex == "delta[m]~when~r==0.5", chromosome != "W") %>% 
-  mutate(chromosome = fct_relevel(chromosome, c("Autosomal", "X", "Z", "Y", "Cytoplasmic"))) %>% 
-  ggplot(aes(x = chromosome, y = 1 - `Inbreeding tolerance`)) +
-  geom_col(fill = "#d0e2af", alpha = 0.75) +
-    facet_wrap(~Sex, labeller = label_parsed) +
-  scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 1.01), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
-  labs(x = "Genomic location",
-       y = "Female offspring production") +
-  theme_bw() +
-  theme(strip.background = element_rect(colour = "black", fill = "#d0e2af"),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14))
-    
-
-fitness_loss_f_delta + fitness_loss_m_delta +
-  plot_layout(axis_titles = "collect")
-
-```
-
-**Figure 2**. direct female reproductive output for inbreeding females at the threshold where chromosome-specific selection should no longer favour inbreeding. Reproductive output is expressed relative to females that exclusively outcross. Cytoplasmic chromosomes are included here to illustrate that the inclusive fitness of alleles on these chromosomes is absolutely aligned with individual-level direct female fitness.
-
-# How fast do inbreeding families become homozygous? {#sec-familysim}
+# How fast do inbreeding families become homozygous?
 
 Run a quick set of simulations to work this out, where female-male pairs of all possible genotypes at the inbreeding locus begin new families. We simulate the autosomal, X and Z cases, as these are where the number of *I* alleles carried by individuals matters.
 
@@ -2708,6 +2396,7 @@ A_data <-
                                    .default = "Females"),
          v_cat = case_when(v == 0.008 ~ "Low",
                            .default = "High"))
+  
 
 A_heatmap <-
   A_data %>%
@@ -3043,6 +2732,423 @@ P_heatmap <-
 P_heatmap
 ```
 :::
+
+**Figure 2**
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 18
+
+#met.brewer(name="VanGogh3", n=7, type="discrete")[7]
+#pnw_palette("Shuksan2", n= 5, type = "discrete")[5]
+
+Sunset <- c("#b0cbe7", "#eba07e", "#fef7c7", "#a8554e")
+
+A_panel <-
+  A_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "Autosome") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Females", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "Autosome")
+         ) %>% 
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = A_data %>% 
+               filter(sex_expressed == "Males") %>%
+               mutate(chromosome = "Autosome"),
+             aes(xintercept = 1/(1 + 0.5*1)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = A_data %>% 
+               filter(sex_expressed == "Females") %>% 
+               mutate(chromosome = "Autosome"),
+             aes(xintercept = (0.5*1)/(1 + 0.5*1)), linetype = 2, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period\n(prob. outbred life has ended)",
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+X_panel <-
+  X_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "X") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Females", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "X")
+         ) %>%  
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = X_data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = X_data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1/(1 + 0.5*2)), linetype = 3, colour = "black", linewidth = .8) +
+  geom_vline(data = X_data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5)/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = X_data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5)/(2 + 0.5)), linetype = 3, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period\n(prob. outbred life has ended)",
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  coord_fixed() +
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+Z_panel <-
+  Z_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "Z") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Females", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "Z")
+         ) %>%  
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = Z_data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 1/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = Z_data %>% filter(sex_expressed == "Males"),
+             aes(xintercept = 2/(2 + 0.5)), linetype = 3, colour = "black", linewidth = .8) +
+  geom_vline(data = Z_data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5)/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = Z_data %>% filter(sex_expressed == "Females"),
+             aes(xintercept = (0.5*2)/(2*0.5 + 1)), linetype = 3, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period\n(prob. outbred life has ended)",
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+W_panel <-
+  W_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "W") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Females", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "W")
+         ) %>% 
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = W_data %>% 
+               mutate(chromosome = "W"),
+             aes(xintercept = 0), linetype = 2, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset, guide="none") +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period\n(prob. outbred life has ended)",
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+Y_panel <-
+  Y_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "Y") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Males", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "Y")
+         ) %>%  
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = Y_data %>% 
+               mutate(chromosome = "Y"),
+             aes(xintercept = 1), linetype = 2, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset, guide="none") +
+  labs(x = ~delta~'(inbreeding depression)',
+       #y = "Male refractory period\n(prob. outbred life has ended)",
+       y = NULL,
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        axis.text.y = element_blank(),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+Cm_panel <-
+  C_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "Cytoplasmic (m)") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Females", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "Cytoplasmic (m)")
+         ) %>%  
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = A_data %>% 
+               filter(sex_expressed == "Males") %>%
+               mutate(chromosome = "Cytoplasmic (m)"),
+             aes(xintercept = 0), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = C_data %>% 
+               filter(sex_expressed == "Females") %>% 
+               mutate(chromosome = "Cytoplasmic (m)"),
+             aes(xintercept = 0), linetype = 2, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period\n(prob. outbred life has ended)",
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+Cp_panel <-
+  P_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive) %>% 
+  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
+              names_from = v_cat, values_from = I_prop) %>% 
+  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
+                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
+                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
+         chromosome = "Cytoplasmic (p)") %>% bind_rows(
+           
+           tibble(D_prop = rep(NA, 5),
+                  refractory_period_prop_cohort_alive = rep(NA, 5),
+                  sex_expressed = rep("Females", 5),
+                  Low = rep(NA, 5),
+                  High = rep(NA, 5),
+                  Result = c("Does not fix",
+                             "Fixes with low\nencounter rate",
+                             "Fixes with high\nencounter rate",
+                             "Fixes with low &\nhigh encounter rate",
+                             NA),
+                  chromosome = "Cytoplasmic (p)")
+         ) %>%   
+  
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  geom_vline(data = A_data %>% 
+               filter(sex_expressed == "Males") %>%
+               mutate(chromosome = "Cytoplasmic (p)"),
+             aes(xintercept = 1), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = C_data %>% 
+               filter(sex_expressed == "Females") %>% 
+               mutate(chromosome = "Cytoplasmic (p)"),
+             aes(xintercept = 1), linetype = 2, colour = "black", linewidth = .8) +
+  scale_fill_manual(values = Sunset) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period\n(prob. outbred life has ended)",
+       fill = "Fate of _I_ allele") +
+  facet_wrap(chromosome~sex_expressed, nrow = 1,
+             labeller = label_glue('{`chromosome`} expressed in {`sex_expressed`}')) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) + 
+  scale_y_continuous(expand = c(0, 0)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "Aliceblue", linewidth = .8),
+        strip.text = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+
+((W_panel | Y_panel) / Cm_panel / X_panel / A_panel / Z_panel) +
+  plot_layout(guides = "collect",
+              axis_titles = "collect") 
+
+
+```
+
 
 **Evolutionary consequences for population fitness**
 
