@@ -50,19 +50,21 @@ library(report)
 We find the inbreeding depression tolerance thresholds with strict polygyny are
 
 \begin{align}
-  \delta_{\mathrm{f},i}^* = \frac{rc_{\mathrm{m},i}F_\mathrm{m} + rc_{\mathrm{m},i}}{c_{\mathrm{f},i}F_\mathrm{f} + rc_{\mathrm{m},i}F_\mathrm{m} + rc_{\mathrm{m},i} + c_{\mathrm{f},i}} \label{female_new_threshold}
+  \delta_{i, \mathrm{f}}^* = \frac{rc_{i, \mathrm{m}}F_\mathrm{m} + rc_{i, \mathrm{m}}}{c_{i, \mathrm{f}}F_\mathrm{f} + rc_{i, \mathrm{m}}F_\mathrm{m} + rc_{i, \mathrm{m}} + c_{i, \mathrm{f}}} \label{female_new_threshold}
 \end{align}
 
 \begin{align}
-  \delta_{\mathrm{m},i}^* = \frac{c_{\mathrm{m},i} + c_{\mathrm{m},i}F_\mathrm{m}}{c_{\mathrm{m},i} + c_{\mathrm{m},i}F_\mathrm{m} + rc_{\mathrm{f},i} + rc_{\mathrm{f},i}F_\mathrm{f}}. \label{male_new_threshold}    
+  \delta_{i, \mathrm{m}}^* = \frac{c_{i, \mathrm{m}} + c_{i, \mathrm{m}}F_\mathrm{m}}{c_{i, \mathrm{m}} + c_{i, \mathrm{m}}F_\mathrm{m} + rc_{i, \mathrm{f}} + rc_{i, \mathrm{f}}F_\mathrm{f}}. \label{male_new_threshold}    
 \end{align}
 
-where $r$ is the genealogical relatedness coefficient, $c_{\mathrm{m},i}$ and $c_{\mathrm{f},i}$ are the juvenile class reproductive values of males and females, respectively, and $F_\mathrm{f}$ and $F_\mathrm{m}$ are the female and male inbreeding coefficients. See main text for more details. 
+where $r$ is the genealogical relatedness coefficient, $c_{i, \mathrm{m}}$ and $c_{i, \mathrm{f}}$ are the juvenile class reproductive values of males and females, respectively, and $F_\mathrm{f}$ and $F_\mathrm{m}$ are the female and male inbreeding coefficients. See main text for more details. 
 
 
 We use these equations to produce Figures 1.
 
 ## Building Figure 1a-b
+
+
 
 ```{r}
 resolution <- 200
@@ -95,13 +97,13 @@ Within_organism_conflict_females <-
                           c_m == 0 & c_f == 1 & F_m == 0 & F_f == 1 ~ "W",
                           c_m == 0 & c_f == 1 & F_m == 1 & F_f == 1 ~ "Cyto. (m)",
                           c_m == 1 & c_f == 0 & F_m == 1 & F_f == 1 ~ "Cyto. (p)"),
-         Inbreeding_speed = case_when(Case == "X" & F_f == 0 |
+         Inbreeding_freq = case_when(Case == "X" & F_f == 0 |
                                         Case == "Z" & F_m == 0 |
-                                        Case == "Autosome" & F_f == 0 ~ "Slow",
-                                      .default = "Fast")) %>% 
+                                        Case == "Autosome" & F_f == 0 ~ "Sporadic",
+                                      .default = "Frequent")) %>% 
   filter(!is.na(Case),
-         Inbreeding_speed == "Fast") %>%
-  select(-c(c_f, c_m, F_f, F_m, Inbreeding_speed)) %>% 
+         Inbreeding_freq == "Frequent") %>%
+  select(-c(c_f, c_m, F_f, F_m, Inbreeding_freq)) %>% 
   pivot_wider(names_from = Case, values_from = qual_f_contrast, id_cols = c(r, D)) %>% 
   mutate(conflict = case_when(Z < 0 ~ 1,
                               Autosome < 0 ~ 2,
@@ -119,13 +121,13 @@ Within_organism_conflict_males <-
                           c_m == 1 & c_f == 0 & F_m == 1 & F_f == 0 ~ "Y",
                           c_m == 0 & c_f == 1 & F_m == 1 & F_f == 1 ~ "Cyto. (m)",
                           c_m == 1 & c_f == 0 & F_m == 1 & F_f == 1 ~ "Cyto. (p)"),
-         Inbreeding_speed = case_when(Case == "X" & F_f == 0 |
+         Inbreeding_freq = case_when(Case == "X" & F_f == 0 |
                                         Case == "Z" & F_m == 0 |
-                                        Case == "Autosome" & F_f == 0 ~ "Slow",
-                                      .default = "Fast")) %>% 
+                                        Case == "Autosome" & F_f == 0 ~ "Sporadic",
+                                      .default = "Frequent")) %>% 
   filter(!is.na(Case),
-         Inbreeding_speed == "Fast") %>%
-  select(-c(c_f, c_m, F_f, F_m, Inbreeding_speed)) %>% 
+         Inbreeding_freq == "Frequent") %>%
+  select(-c(c_f, c_m, F_f, F_m, Inbreeding_freq)) %>% 
   pivot_wider(names_from = Case, values_from = qual_m_contrast, id_cols = c(r, D)) %>% 
   mutate(conflict = case_when(Z < 0 ~ 1,
                               Autosome < 0 ~ 2,
@@ -157,12 +159,12 @@ figure_1_thresholds <-
                             Sex == "B. Male within-organism conflict" ~ "Cyto. (m)",
                           c_m == 1 & c_f == 0 & F_m == 1 & F_f == 1 & 
                             Sex == "A. Female within-organism conflict" ~ "Cyto. (p)"),
-         Inbreeding_speed = case_when(Case == "X" & F_f == 0 |
+         Inbreeding_freq = case_when(Case == "X" & F_f == 0 |
                                         Case == "Z" & F_m == 0 |
-                                        Case == "Autosome" & F_m == 0 ~ "Slow",
-                                      .default = "Fast")) %>% 
+                                        Case == "Autosome" & F_m == 0 ~ "Sporadic",
+                                      .default = "Frequent")) %>% 
   filter(!is.na(Case),
-         Inbreeding_speed == "Fast")
+         Inbreeding_freq == "Frequent")
 
 threshold_1 <- 
   figure_1_thresholds %>% 
@@ -284,7 +286,7 @@ sexual_conflict_plot
 Fig_1ab / sexual_conflict_plot + plot_layout(heights = c(2,1.5))
 ```
 
-**Figure 1**. Within-organism conflict over inbreeding acceptance. In panels **A** and **B**, contours show the the severity of inbreeding depression below which inbreeding increases the inclusive fitness of genes in a particular genomic region. As the fill gets darker, fewer parts of the genome have higher fitness when inbreeding is preferred over outcrossing. **C** shows the range of inbreeding depression intensities that produce sexual conflict over inbreeding acceptance, when mating is between full-siblings ($r=0.5$). Lines indicate the conflict zone when loci affecting female and male trait values are found within the same genomic region. Values within the coloured circles are $\delta_{\mathrm{f},i}^*$ and $\delta_{\mathrm{f},i}^*$. Green points show where the sexes have aligned fitness interests. Results are shown for the frequent inbreeding scenario. Cyto. (m) and Cyto. (p) denote cytoplasmic genes that have strict maternal and paternal inheritance, respectively.
+**Figure 1**. Within-organism conflict over inbreeding acceptance. In panels \textbf{A} and \textbf{B}, contours show the severity of inbreeding depression below which inbreeding increases the inclusive fitness of genes in a particular genomic region. As the fill gets darker, fewer parts of the genome have higher fitness when inbreeding is preferred over outcrossing. \textbf{C} shows the range of inbreeding depression intensities that produce sexual conflict over inbreeding acceptance, when mating is between full-siblings ($r=0.5$). Lines indicate the conflict zone when loci affecting female and male trait values are found within the same genomic region. Values within the coloured circles are $\delta_{i,\mathrm{f}}^*$ and $\delta_{i,\mathrm{m}}^*$. Green points show where the sexes have aligned fitness interests. In all panels, predictions are shown for X- and Z-linked genes at the frequent inbreeding extreme. Cyto. (m) and Cyto. (p) denote cytoplasmic genes that have strict maternal and paternal inheritance, respectively.
 
 # The simulation
 
@@ -300,7 +302,6 @@ sample_vec <- function(x, ...) x[sample(length(x), ...)]
 2. A function that builds the appropriate inheritance system. 
 
 ```{r}
-
 make_mating_table <- function(gene_location){
   
   make_offspring <- function(X, Y, offspring_genotype, zygote_freq, sex){
@@ -419,7 +420,6 @@ make_mating_table <- function(gene_location){
     return(books)  
 }
 
-
 offspring_genotypes_autosome <- make_mating_table("A")
 offspring_genotypes_X <- make_mating_table("X")
 offspring_genotypes_Y <- make_mating_table("Y")
@@ -427,7 +427,6 @@ offspring_genotypes_Z <- make_mating_table("Z")
 offspring_genotypes_W <- make_mating_table("W")
 offspring_genotypes_C <- make_mating_table("C")
 offspring_genotypes_P <- make_mating_table("P")
-
 ```
 
 3. A function that takes two parental genotypes and produces offspring 
@@ -436,7 +435,6 @@ offspring_genotypes_P <- make_mating_table("P")
 sample_mating_table <- function(inheritance_scheme, 
                                 f,
                                 mother){
-  
   # cut to possible genotypes
   possibilities <- 
     inheritance_scheme[inheritance_scheme$Female_genotype == mother[4] &
@@ -451,68 +449,67 @@ sample_mating_table <- function(inheritance_scheme,
                        prob = probs,
                        replace = TRUE), ]
 }
-
-
 ```
 
 ## Load the parameter space
 
 ```{r}
-resolution <- 25
-starting_pop_size_autosomes <- 2000 # both sexes harbour two copies of each autosomal chromosome = 1000 autosomal haplotypes
-
-parameters <-
-  expand_grid(
-    chromosome = c("A", "X", "Y", "Z", "W", "C", "P"),
-    v = c(8, 80),
-    D = seq(0, -0.99, length = resolution), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.01, 1, length = resolution)
-  ) %>% 
-  full_join(tibble(chromosome = c("A", "A", "A", "A", "A", "A",
-                                  "X", "X", "X", "X",
-                                  "Y",
-                                  "Z", "Z", "Z", "Z",
-                                  "W",
-                                  "C", "C",
-                                  "P", "P"),
-                   sex_expressed = c(0, 0, 0, 1, 1, 1,
-                                     0, 1, 1, 1,
-                                     0,
-                                     0, 0, 0, 1,
-                                     1,
-                                     0, 1,
-                                     0, 1),
-                   dominance = c(0, 0.5, 1, 0, 0.5, 1,
-                                 1, 0, 0.5, 1, 
-                                 1, 
-                                 0, 0.5, 1, 1,
-                                 1,
-                                 1, 1,
-                                 1, 1)) %>% 
-              mutate(Starting_pop_size = case_when(chromosome == "A" ~ starting_pop_size_autosomes,
-                                                   chromosome == "X" | chromosome == "Z" ~ 
-                                                     starting_pop_size_autosomes / 0.75,
-                                                   chromosome == "Y" | chromosome == "W" ~ starting_pop_size_autosomes*4,
-                                                   chromosome == "C" | chromosome == "P" ~ starting_pop_size_autosomes*2)),
-            relationship = "many-to-many", by = "chromosome") %>% 
-  mutate(baseline_mean_lifespan = 1,
-         v = v / (Starting_pop_size / 2),
-         f = 5, 
-         refractory_period = -log(refractory_period_prop_cohort_alive),
-         mutation_time = 5, # this is when the mutation can be introduced from
-         time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
-         parameter_space_ID = row_number(),
-         mutation_events = 5)
-
-parameters_autosome <- parameters %>% filter(chromosome == "A") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-parameters_X <- parameters %>% filter(chromosome == "X") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-parameters_Y <- parameters %>% filter(chromosome == "Y") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-parameters_Z <- parameters %>% filter(chromosome == "Z") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-parameters_W <- parameters %>% filter(chromosome == "W") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-parameters_C <- parameters %>% filter(chromosome == "C") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-parameters_P <- parameters %>% filter(chromosome == "P") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
-
 if(!file.exists("parameters/parameters_autosome.txt")){
+  
+  resolution <- 25
+  starting_pop_size_autosomes <- 2000 # both sexes harbour two copies of each autosomal chromosome = 4000 autosomal haplotypes
+  
+  parameters <-
+    expand_grid(
+      chromosome = c("A", "X", "Y", "Z", "W", "C", "P"),
+      v = c(8, 80),
+      D = seq(0, -0.99, length = resolution), # inbreeding depression
+      refractory_period_prop_cohort_alive = seq(0.01, 1, length = resolution)
+    ) %>% 
+    full_join(tibble(chromosome = c("A", "A", "A", "A", "A", "A",
+                                    "X", "X", "X", "X",
+                                    "Y",
+                                    "Z", "Z", "Z", "Z",
+                                    "W",
+                                    "C", "C",
+                                    "P", "P"),
+                     sex_expressed = c(0, 0, 0, 1, 1, 1,
+                                       0, 1, 1, 1,
+                                       0,
+                                       0, 0, 0, 1,
+                                       1,
+                                       0, 1,
+                                       0, 1),
+                     dominance = c(0, 0.5, 1, 0, 0.5, 1,
+                                   1, 0, 0.5, 1, 
+                                   1, 
+                                   0, 0.5, 1, 1,
+                                   1,
+                                   1, 1,
+                                   1, 1)) %>% 
+                mutate(Starting_pop_size = case_when(chromosome == "A" ~ starting_pop_size_autosomes,
+                                                     chromosome == "X" | chromosome == "Z" ~ 
+                                                       starting_pop_size_autosomes / 0.75,
+                                                     chromosome == "Y" | chromosome == "W" ~ starting_pop_size_autosomes*4,
+                                                     chromosome == "C" | chromosome == "P" ~ starting_pop_size_autosomes*2)),
+              relationship = "many-to-many", by = "chromosome") %>% 
+    mutate(baseline_mean_lifespan = 1,
+           v = v / (Starting_pop_size / 2),
+           f = 5, 
+           refractory_period = -log(refractory_period_prop_cohort_alive),
+           mutation_time = 5, # this is when the mutation can be introduced from
+           time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
+           parameter_space_ID = row_number(),
+           mutation_events = 5)
+  
+  parameters_autosome <- parameters %>% filter(chromosome == "A") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  parameters_X <- parameters %>% filter(chromosome == "X") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  parameters_Y <- parameters %>% filter(chromosome == "Y") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  parameters_Z <- parameters %>% filter(chromosome == "Z") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  parameters_W <- parameters %>% filter(chromosome == "W") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  parameters_C <- parameters %>% filter(chromosome == "C") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  parameters_P <- parameters %>% filter(chromosome == "P") %>% slice_sample(prop = 1) # shuffle to equalise workload across jobs
+  
   parameters_autosome %>% write.table("parameters/parameters_autosome.txt")
   parameters_X %>% write.table("parameters/parameters_X.txt")
   parameters_Y %>% write.table("parameters/parameters_Y.txt")
@@ -520,166 +517,180 @@ if(!file.exists("parameters/parameters_autosome.txt")){
   parameters_W %>% write.table("parameters/parameters_W.txt")
   parameters_C %>% write.table("parameters/parameters_C.txt")
   parameters_P %>% write.table("parameters/parameters_P.txt")
+} else {
+  
+  parameters_autosome <- read.table("parameters/parameters_autosome.txt")
+  parameters_X <- read.table("parameters/parameters_X.txt")
+  parameters_Y <- read.table("parameters/parameters_Y.txt")
+  parameters_Z <- read.table("parameters/parameters_Z.txt")
+  parameters_W <- read.table("parameters/parameters_W.txt")
+  parameters_C <- read.table("parameters/parameters_C.txt")
+  parameters_P <- read.table("parameters/parameters_P.txt")
 }
+
 ```
 
-We also run the simulation across a more specific parameter space, that corresponds to the zone of uncertainty produced by the dynamic effect of inbreeding on relatedness.
+We also ran the simulation across a more specific parameter space, that corresponds to the zone of uncertainty produced by the dynamic effect of inbreeding on relatedness.
 
 ```{r}
 
-resolution_fine <- 80
-
-parameters_fine_X <-
-  bind_rows(
-  expand_grid(
-    chromosome = "X",
-    v = 80,
-    D = seq(-0.5, -0.67, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "X",
-                   sex_expressed = 0,
-                   dominance = 1),
-              
-            relationship = "many-to-many", by = "chromosome"),
-  
-  expand_grid(
-    chromosome = "X",
-    v = 80,
-    D = seq(-0.2, -0.33, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "X",
-                   sex_expressed = 1,
-                   dominance = 1),
-            relationship = "many-to-many", by = "chromosome")
-  ) %>% 
-  mutate(Starting_pop_size = starting_pop_size_autosomes / 0.75,
-         baseline_mean_lifespan = 1,
-         v = v / (Starting_pop_size / 2),
-         f = 5, 
-         refractory_period = -log(refractory_period_prop_cohort_alive),
-         mutation_time = 5, # this is when the mutation can be introduced from
-         time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
-         parameter_space_ID = row_number(),
-         mutation_events = 5) %>% 
-  slice_sample(prop = 1)
-
-parameters_fine_Z <-
-  bind_rows(
-  expand_grid(
-    chromosome = "Z",
-    v = 80,
-    D = seq(-0.67, -0.8, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "Z",
-                   sex_expressed = 0,
-                   dominance = 1),
-            relationship = "many-to-many", by = "chromosome"),
-  
-   expand_grid(
-    chromosome = "Z",
-    v = 80,
-    D = seq(-0.33, -0.5, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "Z",
-                   sex_expressed = 1,
-                   dominance = 1),
-            relationship = "many-to-many", by = "chromosome")
-  ) %>% 
-  mutate(Starting_pop_size = starting_pop_size_autosomes / 0.75,
-         baseline_mean_lifespan = 1,
-         v = v / (Starting_pop_size / 2),
-         f = 5, 
-         refractory_period = -log(refractory_period_prop_cohort_alive),
-         mutation_time = 5, # this is when the mutation can be introduced from
-         time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
-         parameter_space_ID = row_number(),
-         mutation_events = 5) %>% 
-  slice_sample(prop = 1)
-
-
-parameters_fine_AX <-
-  bind_rows(
-  expand_grid(
-    chromosome = "A",
-    v = 80,
-    D = seq(-0.5, -0.67, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "A",
-                   sex_expressed = 0,
-                   dominance = 1),
-              
-            relationship = "many-to-many", by = "chromosome"),
-  
-  expand_grid(
-    chromosome = "A",
-    v = 80,
-    D = seq(-0.2, -0.33, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "A",
-                   sex_expressed = 1,
-                   dominance = 1),
-            relationship = "many-to-many", by = "chromosome")
-  ) %>% 
-  mutate(Starting_pop_size = starting_pop_size_autosomes,
-         baseline_mean_lifespan = 1,
-         v = v / (Starting_pop_size / 2),
-         f = 5, 
-         refractory_period = -log(refractory_period_prop_cohort_alive),
-         mutation_time = 5, # this is when the mutation can be introduced from
-         time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
-         parameter_space_ID = row_number(),
-         mutation_events = 5) %>% 
-  slice_sample(prop = 1)
-
-
-parameters_fine_AZ <-
-  bind_rows(
-  expand_grid(
-    chromosome = "A",
-    v = 80,
-    D = seq(-0.67, -0.8, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "A",
-                   sex_expressed = 0,
-                   dominance = 1),
-            relationship = "many-to-many", by = "chromosome"),
-  
-   expand_grid(
-    chromosome = "A",
-    v = 80,
-    D = seq(-0.33, -0.5, length = resolution_fine), # inbreeding depression
-    refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
-  ) %>% 
-  full_join(tibble(chromosome = "A",
-                   sex_expressed = 1,
-                   dominance = 1),
-            relationship = "many-to-many", by = "chromosome")
-  ) %>% 
-  mutate(Starting_pop_size = starting_pop_size_autosomes,
-         baseline_mean_lifespan = 1,
-         v = v / (Starting_pop_size / 2),
-         f = 5, 
-         refractory_period = -log(refractory_period_prop_cohort_alive),
-         mutation_time = 5, # this is when the mutation can be introduced from
-         time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
-         parameter_space_ID = row_number(),
-         mutation_events = 5) %>% 
-  slice_sample(prop = 1)
-
-
-
 if(!file.exists("parameters/parameters_fine_X.txt")){
+  resolution_fine <- 80
+  
+  parameters_fine_X <-
+    bind_rows(
+      expand_grid(
+        chromosome = "X",
+        v = 80,
+        D = seq(-0.5, -0.67, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "X",
+                         sex_expressed = 0,
+                         dominance = 1),
+                  
+                  relationship = "many-to-many", by = "chromosome"),
+      
+      expand_grid(
+        chromosome = "X",
+        v = 80,
+        D = seq(-0.2, -0.33, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "X",
+                         sex_expressed = 1,
+                         dominance = 1),
+                  relationship = "many-to-many", by = "chromosome")
+    ) %>% 
+    mutate(Starting_pop_size = starting_pop_size_autosomes / 0.75,
+           baseline_mean_lifespan = 1,
+           v = v / (Starting_pop_size / 2),
+           f = 5, 
+           refractory_period = -log(refractory_period_prop_cohort_alive),
+           mutation_time = 5, # this is when the mutation can be introduced from
+           time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
+           parameter_space_ID = row_number(),
+           mutation_events = 5) %>% 
+    slice_sample(prop = 1)
+  
+  parameters_fine_Z <-
+    bind_rows(
+      expand_grid(
+        chromosome = "Z",
+        v = 80,
+        D = seq(-0.67, -0.8, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "Z",
+                         sex_expressed = 0,
+                         dominance = 1),
+                  relationship = "many-to-many", by = "chromosome"),
+      
+      expand_grid(
+        chromosome = "Z",
+        v = 80,
+        D = seq(-0.33, -0.5, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "Z",
+                         sex_expressed = 1,
+                         dominance = 1),
+                  relationship = "many-to-many", by = "chromosome")
+    ) %>% 
+    mutate(Starting_pop_size = starting_pop_size_autosomes / 0.75,
+           baseline_mean_lifespan = 1,
+           v = v / (Starting_pop_size / 2),
+           f = 5, 
+           refractory_period = -log(refractory_period_prop_cohort_alive),
+           mutation_time = 5, # this is when the mutation can be introduced from
+           time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
+           parameter_space_ID = row_number(),
+           mutation_events = 5) %>% 
+    slice_sample(prop = 1)
+  
+  
+  parameters_fine_AX <-
+    bind_rows(
+      expand_grid(
+        chromosome = "A",
+        v = 80,
+        D = seq(-0.5, -0.67, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "A",
+                         sex_expressed = 0,
+                         dominance = 1),
+                  
+                  relationship = "many-to-many", by = "chromosome"),
+      
+      expand_grid(
+        chromosome = "A",
+        v = 80,
+        D = seq(-0.2, -0.33, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "A",
+                         sex_expressed = 1,
+                         dominance = 1),
+                  relationship = "many-to-many", by = "chromosome")
+    ) %>% 
+    mutate(Starting_pop_size = starting_pop_size_autosomes,
+           baseline_mean_lifespan = 1,
+           v = v / (Starting_pop_size / 2),
+           f = 5, 
+           refractory_period = -log(refractory_period_prop_cohort_alive),
+           mutation_time = 5, # this is when the mutation can be introduced from
+           time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
+           parameter_space_ID = row_number(),
+           mutation_events = 5) %>% 
+    slice_sample(prop = 1)
+  
+  
+  parameters_fine_AZ <-
+    bind_rows(
+      expand_grid(
+        chromosome = "A",
+        v = 80,
+        D = seq(-0.67, -0.8, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "A",
+                         sex_expressed = 0,
+                         dominance = 1),
+                  relationship = "many-to-many", by = "chromosome"),
+      
+      expand_grid(
+        chromosome = "A",
+        v = 80,
+        D = seq(-0.33, -0.5, length = resolution_fine), # inbreeding depression
+        refractory_period_prop_cohort_alive = seq(0.8, 0.999, length = 15)
+      ) %>% 
+        full_join(tibble(chromosome = "A",
+                         sex_expressed = 1,
+                         dominance = 1),
+                  relationship = "many-to-many", by = "chromosome")
+    ) %>% 
+    mutate(Starting_pop_size = starting_pop_size_autosomes,
+           baseline_mean_lifespan = 1,
+           v = v / (Starting_pop_size / 2),
+           f = 5, 
+           refractory_period = -log(refractory_period_prop_cohort_alive),
+           mutation_time = 5, # this is when the mutation can be introduced from
+           time_end = 1000, # with avg lifespan = 1, this is ~ roughly 1000 gens
+           parameter_space_ID = row_number(),
+           mutation_events = 5) %>% 
+    slice_sample(prop = 1)
+  
+  
   parameters_fine_X %>% write.table("parameters/parameters_fine_X.txt")
   parameters_fine_Z %>% write.table("parameters/parameters_fine_Z.txt")
   parameters_fine_AX %>% write.table("parameters/parameters_fine_AX.txt")
   parameters_fine_AZ %>% write.table("parameters/parameters_fine_AZ.txt")
+} else{
+  parameters_fine_X <- read.table("parameters/parameters_fine_X.txt")
+  parameters_fine_Z <- read.table("parameters/parameters_fine_Z.txt")
+  parameters_fine_AX <- read.table("parameters/parameters_fine_AX.txt")
+  parameters_fine_AZ <- read.table("parameters/parameters_fine_AZ.txt")
 }
 ```
 
@@ -1220,17 +1231,12 @@ continuous_time_simulation <- function(row,
                   parameter_space_ID, 
                   chromosome, ".csv", 
                   sep = ""))
-  #write.csv(results_matrix,
-    #        paste("sim_results/rowID_", 
-      #            parameter_space_ID, 
-        #          chromosome, ".csv", 
-          #        sep = ""))
 }
 ```
 
 ## Run the simulation
 
-In practice, we ran the simulations on JGU's Mogon computing cluster. See the `HPC_inbreeding_script.R` and the batch script `run_inbreeding_sim`. 
+In practice, we ran the simulations on JGU's MOGON computing cluster. See the `HPC_inbreeding_script.R` and the batch script `run_inbreeding_sim`. 
 To run the simulation for a single parameter space, you could run `continuous_time_simulation(1, parameters_P, offspring_genotypes_P)`
 
 ```{r, eval=FALSE, include=FALSE}
@@ -1263,7 +1269,6 @@ results_reader <- function(x){
 First, let's load the results for the coarse parameter space.
 
 ```{r}
-
 if(!file.exists("results/autosome_results.csv")){
   results <- 
     map_dfr(files, results_reader) %>% 
@@ -1382,13 +1387,11 @@ if(!file.exists("results/P_results.csv")){
 }else{
   P_results <- read_delim("results/P_results.csv")
 }
-
 ```
 
 Now load results for the finer parameter space
 
 ```{r}
-
 files <-
     list.files(path = "sim_results") %>% 
     str_subset("Z") # change this to load the desired files
@@ -1462,10 +1465,10 @@ if(!file.exists("results/Z_results_fine.csv")){
 }
 ```
 
-
 ## Plotting simulation results
 
 ```{r}
+# load a nice colour palette
 temp <- pnw_palette("Shuksan2",100)
 ```
 
@@ -1843,12 +1846,11 @@ Prop_mated_series %>%
   
 ```
 
-**Figure S1**. The effect of mate searching efficiency on female matelessness. Each line shows the outcome of a single simulation run across the first 50 time units. Runs differ in parameter values. Orange and blue trajectories indicate simulation runs where males have low and high mate searching capabilities, respectively. The dotted line indicates the appearance of the inbreeding acceptance alleles in the population.
-
+**Figure S1**. The effect of mate searching efficiency on female matelessness. Each line shows the outcome of a single simulation run at the end of the first 50 time units for parameter values indicated on the axes. Orange and blue trajectories indicate simulation runs where males have low ($v=8$) and high ($v=80$) mate searching capabilities, respectively. The dotted line indicates the appearance of the inbreeding acceptance alleles in the population.
 
 ### Building Figure 2
 
-Prep data for plotting. We first extract the final $I$ allele frequencies from each simulation run and categorise the outcome as either i) Population extinction, ii) purging of the $I$ allele or iii) $I$ approaches fixation.
+Prep data for plotting. We first extract the final $I$ allele frequencies from each simulation run and categorise the outcome as either i) Population crash (<100 individuals), ii) purging of the $I$ allele or iii) $I$ approaches fixation.
 
 ```{r}
 A_data <-
@@ -1857,7 +1859,7 @@ A_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1871,7 +1873,7 @@ X_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1885,7 +1887,7 @@ Z_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1899,7 +1901,7 @@ W_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1913,7 +1915,7 @@ Y_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1927,7 +1929,7 @@ C_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1941,7 +1943,7 @@ P_data <-
   slice_tail() %>% 
   ungroup() %>% 
   mutate(D_prop = D*-1,
-         Fate = case_when(pop_size < 10 ~ "Extinction",
+         Fate = case_when(pop_size < 100 ~ "Extinction",
                           I_prop  >= 0.9 ~ "Invades",
                           I_prop  < 0.001 ~ "Purged"),
          sex_expressed = case_when(sex_expressed == 0 ~ "Males have power",
@@ -1952,9 +1954,33 @@ P_data <-
 
 ```
 
-Now stitch all the relevant results together so that we can feed it to `ggplot` as one dataframe.
+Stitch data together into one dataframe for plotting
 
 ```{r}
+# check for pop crashes
+
+#A_data |> filter(pop_size < 100)
+#X_data |> filter(pop_size < 100)
+#Z_data |> filter(pop_size < 100)
+#W_data |> filter(pop_size < 100)
+# no crashes above, but some crashes for the below
+Extinctions <-
+  bind_rows(
+    Y_data |> 
+      filter(pop_size < 100) |> 
+      select(D_prop, refractory_period_prop_cohort_alive, sex_expressed) |> 
+      mutate(Extinction = 1,
+             chromosome = "Y"),
+    
+    P_data |> 
+      filter(pop_size < 100) |> 
+      select(D_prop, refractory_period_prop_cohort_alive, sex_expressed) |> 
+      mutate(Extinction = 1,
+             chromosome = "Cyto. (p)")
+  )
+
+
+
 Fig2_data <-
   bind_rows(
     
@@ -1967,9 +1993,8 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "Autosome"),
     
@@ -1983,9 +2008,8 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "X"),
     
@@ -1998,9 +2022,8 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "Z"),
     
@@ -2013,9 +2036,8 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "W"),
     # this is dummy code to produce an all white panel when ggplot expects a W in males
@@ -2041,9 +2063,8 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "Y"),
     # this is dummy code to produce an all white panel when ggplot expects a W in males
@@ -2069,9 +2090,8 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "Cyto. (m)"),
     
@@ -2084,21 +2104,21 @@ Fig2_data <-
              refractory_period_prop_cohort_alive) %>% 
       pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed), 
                   names_from = v_cat, values_from = I_prop) %>% 
-      mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                                Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                                Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
+      mutate(Result = case_when(High >= 0.9 ~ "Fixes with high\nencounter rate",
+                                Low >= 0.9 & High < 0.9 ~ "Extra fixation with\nlow encounter rate",
                                 Low < 0.9 & High < 0.9 ~ "Does not fix"),
              chromosome = "Cyto. (p)"),
     
-  )
+  ) |> 
+  left_join(Extinctions) |> 
+  mutate(Result = case_when(Extinction == 1 ~ "Pop crash with\nlow encounter rate",
+                            .default = Result))
 ```
 
-Plot
+plot
 
 ```{r}
 #| fig-height: 16
-
-Sunset <- c("#b0cbe7", "#eba07e", "#fef7c7", "#a8554e", "white")
   
 # Annotation layer data
 letter_labels <-
@@ -2109,6 +2129,34 @@ letter_labels <-
          y = 0.9,
          label = c("A", "B", "C", "D", "E", "F", "G", "H", "I",
                    "J", "K", "L", "M", "N"))
+
+# getting the colours and legend to work
+
+legend_list <-
+  c("Does not fix",
+    "Fixes with high\nencounter rate",
+    "Extra fixation with\nlow encounter rate",
+    "Pop crash with\nlow encounter rate",
+    "Not present")
+
+legend_breaks <-
+  c("Does not fix",
+    "Fixes with high\nencounter rate",
+    "Extra fixation with\nlow encounter rate",
+    "Pop crash with\nlow encounter rate")
+
+col_vector <- 
+  c("#b0cbe7",
+    #"#eba07e", 
+    "#a8554e", 
+    "#fef7c7",
+    "black",
+    "white")
+
+# need this trick to get all colours on figure but only a subset reported in legend
+
+names(col_vector) <- 
+  legend_list
 
 # W and Y annotation layer
 
@@ -2124,7 +2172,7 @@ Fig2_data %>%
   ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
   geom_blank() +
   geom_tile(aes(fill = Result), alpha = 1) + 
-  scale_fill_manual(values = Sunset) +
+  scale_fill_manual(values = col_vector, breaks = legend_breaks) +
   labs(x = ~delta~'(inbreeding depression)',
        y = "Male refractory period (prob. outbred life has ended)",
        fill = "Fate of _I_ allele") +
@@ -2162,6 +2210,7 @@ Fig2_data %>%
   scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
   scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
   theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        #panel.background = element_rect(fill = "orange", colour = "orange"),
         strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
         strip.text = element_text(size = 14),
         axis.title.x = element_text(size = 18),
@@ -2175,177 +2224,7 @@ Fig2_data %>%
 
 ```
 
-**Figure 2**. Results generated by stochastic population genetic simulations. Panels show the conditions where dominant inbreeding alleles invade to a high frequency (0.9) when females (left column) or males (right column) control the outcome of mating interactions, for genes found on W, maternally inherited cytoplasmic, X, Autosomal, Z, paternally inherited cytoplasmic and Y chromosomes. Inbreeding depression is expressed as the mean proportion of lifespan lost relative to an outbred individual, while the male refractory period is measured as the proportion of an outbred individuals maximum lifespan that is spent out of the mating pool after mating. The thick dashed lines show $\delta_{\mathrm{f}, i}^*$ and $\delta_{\mathrm{m}, i}^*$ when inbreeding is sporadic, while the thin dashed line shows these thresholds at the frequent inbreeding extreme (if they differ). Note that each pixel reports the outcome of precisely two simulation runs, one where male-female encounters are common and another where they are rare. The mosaic nature of the plot reveals the stochasticity of outcomes when a small number of mutants tried to invade per run. While inbreeding is therefore never guaranteed to invade, the plot allows identifying parameter regions where it never spreads, as opposed to often doing so.
-
-### Building supplementary dominance figures
-
-```{r}
-#| fig-height: 7.6
-A_data_dominance <-
-  A_data %>% 
-  select(I_prop, 
-         sex_expressed, 
-         v_cat, 
-         D_prop,
-         refractory_period_prop_cohort_alive,
-         dominance) %>% 
-  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed, dominance), 
-              names_from = v_cat, values_from = I_prop) %>% 
-  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
-                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
-         dominance = case_when(dominance == 0 ~ "Recessive",
-                               dominance == 0.5 ~ "Additive",
-                               .default = "Dominant"))
-
-A_data_dominance %>% 
-  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
-  geom_blank() +
-  geom_tile(aes(fill = Result), alpha = 1) + 
-  scale_fill_manual(values = Sunset) +
-  labs(x = ~delta~'(inbreeding depression)',
-       y = "Male refractory period (prob. outbred life has ended)",
-       fill = "Fate of _I_ allele",
-       title = "Autosomal loci") +
-  facet_grid(factor(dominance, levels = c("Recessive", "Additive", "Dominant")) ~ sex_expressed) +
-  
-  geom_vline(data = A_data_dominance %>% 
-               filter(sex_expressed == "Males have power"),
-             aes(xintercept = 1/(1 + 0.5*1)), linetype = 2, colour = "black", linewidth = .8) +
-  geom_vline(data = A_data_dominance %>% 
-               filter(sex_expressed == "Females have power"),
-             aes(xintercept = (0.5*1)/(1 + 0.5*1)), linetype = 2, colour = "black", linewidth = .8) +
-  coord_fixed() +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
-  scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
-  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
-        strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
-        strip.text = element_text(size = 14),
-        axis.title.x = element_text(size = 18),
-        axis.title.y = element_text(size = 18),
-        plot.title = element_text(hjust = 0.5, size = 18),
-        axis.text = element_text(size =12),
-        legend.title = element_markdown(),
-        panel.spacing = unit(1, "lines"))
-```
-
-**Figure S4**. Results generated by stochastic population genetic simulations. Panels show the conditions where inbreeding invades to a high frequency (0.9) at autosomal loci, when females (left column) or males (right column) control the outcome of mating interactions, when inbreeding acceptance alleles are either completely recessive, additive or dominant. Inbreeding depression is expressed as the mean proportion of lifespan lost relative to an outbred individual, while the male refractory period is measured as the proportion of an outbred individuals maximum lifespan that is spent out of the mating pool after mating. The thick dashed lines show $\delta_{\mathrm{f}, i}^*$ and $\delta_{\mathrm{m}, i}^*$. Note that each pixel reports the outcome of precisely two simulation runs, one where male-female encounters are common and another where they are rare. As alleles become more recessive, they are less likely to be expressed while rare, making it more difficult to overcome the drift barrier. 
-
-```{r}
-#| fig-height: 7.6
-X_data_dominance <-
-  X_data %>% 
-  select(I_prop, 
-         sex_expressed, 
-         v_cat, 
-         D_prop,
-         refractory_period_prop_cohort_alive,
-         dominance) %>% 
-  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed, dominance), 
-              names_from = v_cat, values_from = I_prop) %>% 
-  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
-                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
-         dominance = case_when(dominance == 0 ~ "Recessive",
-                               dominance == 0.5 ~ "Additive",
-                               .default = "Dominant"))
-
-X_data_dominance %>% 
-  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
-  geom_blank() +
-  geom_tile(aes(fill = Result), alpha = 1) + 
-  scale_fill_manual(values = Sunset) +
-  labs(x = ~delta~'(inbreeding depression)',
-       y = "Male refractory period (prob. outbred life has ended)",
-       fill = "Fate of _I_ allele",
-       title = "X-linked loci") +
-  facet_grid(factor(dominance, levels = c("Recessive", "Additive", "Dominant")) ~ sex_expressed) +
-  
-  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Males have power"),
-             aes(xintercept = 1/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
-  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Males have power"),
-             aes(xintercept = 1/(1 + 0.5*2)), linetype = 3, colour = "black", linewidth = .8) +
-  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Females have power"),
-             aes(xintercept = (0.5)/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
-  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Females have power"),
-             aes(xintercept = (0.5)/(2 + 0.5)), linetype = 3, colour = "black", linewidth = .8) +
-  
-
-  coord_fixed() +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
-  scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
-  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
-        strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
-        panel.background = element_rect(fill = "white"),
-        strip.text = element_text(size = 14),
-        axis.title.x = element_text(size = 18),
-        axis.title.y = element_text(size = 18),
-        plot.title = element_text(hjust = 0.5, size = 18),
-        axis.text = element_text(size =12),
-        legend.title = element_markdown(),
-        panel.spacing = unit(1, "lines"))
-```
-
-**Figure S5**. Results generated by stochastic population genetic simulations. Panels show the conditions where inbreeding invades to a high frequency (0.9) at X-linked loci, when females (left column) or males (right column) control the outcome of mating interactions, when inbreeding acceptance alleles are either completely recessive, additive or dominant. White fill indicates dominance scenarios we do not explore, due to hemizygosity. All other details are as in Figure S2.
-
-```{r}
-#| fig-height: 7.6
-Z_data_dominance <-
-  Z_data %>% 
-  select(I_prop, 
-         sex_expressed, 
-         v_cat, 
-         D_prop,
-         refractory_period_prop_cohort_alive,
-         dominance) %>% 
-  pivot_wider(id_cols = c(D_prop, refractory_period_prop_cohort_alive, sex_expressed, dominance), 
-              names_from = v_cat, values_from = I_prop) %>% 
-  mutate(Result = case_when(Low >= 0.9 & High >= 0.9 ~ "Fixes with low &\nhigh encounter rate",
-                            Low < 0.9 & High >= 0.9 ~ "Fixes with high\nencounter rate",
-                            Low >= 0.9 & High < 0.9 ~ "Fixes with low\nencounter rate",
-                            Low < 0.9 & High < 0.9 ~ "Does not fix"),
-         dominance = case_when(dominance == 0 ~ "Recessive",
-                               dominance == 0.5 ~ "Additive",
-                               .default = "Dominant"))
-
-Z_data_dominance %>% 
-  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
-  geom_blank() +
-  geom_tile(aes(fill = Result), alpha = 1) + 
-  scale_fill_manual(values = Sunset) +
-  labs(x = ~delta~'(inbreeding depression)',
-       y = "Male refractory period (prob. outbred life has ended)",
-       fill = "Fate of _I_ allele",
-       title = "Z-linked loci") +
-  facet_grid(factor(dominance, levels = c("Recessive", "Additive", "Dominant")) ~ sex_expressed) +
-  
-  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Males have power"),
-             aes(xintercept = 1/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
-  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Males have power"),
-             aes(xintercept = 2/(2 + 0.5)), linetype = 3, colour = "black", linewidth = .8) +
-  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Females have power"),
-             aes(xintercept = (0.5)/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
-  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Females have power"),
-             aes(xintercept = (0.5*2)/(2*0.5 + 1)), linetype = 3, colour = "black", linewidth = .8) +
-  coord_fixed() +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
-  scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
-  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
-        strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
-        panel.background = element_rect(fill = "white"),
-        strip.text = element_text(size = 14),
-        axis.title.x = element_text(size = 18),
-        axis.title.y = element_text(size = 18),
-        plot.title = element_text(hjust = 0.5, size = 18),
-        axis.text = element_text(size =12),
-        legend.title = element_markdown(),
-        panel.spacing = unit(1, "lines"))
-```
-
-**Figure S6**. Results generated by stochastic population genetic simulations. Panels show the conditions where inbreeding invades to a high frequency (0.9) at Z-linked loci, when females (left column) or males (right column) control the outcome of mating interactions, when inbreeding acceptance alleles are either completely recessive, additive or dominant. White fill indicates dominance scenarios we do not explore, due to hemizygosity. All other details are as in Figure S2.
-
+**Figure 2**. Results generated by stochastic population genetic simulations. Panels show the conditions where dominant inbreeding alleles invade to a high frequency (0.9) when females (left column) or males (right column) have power over the outcome of mating interactions, for genes found on W, maternally inherited cytoplasmic, X, Autosomal, Z, paternally inherited cytoplasmic and Y chromosomes. Inbreeding depression is expressed as the mean proportion of lifespan lost relative to an outbred individual, while the male refractory period is measured as the proportion of an outbred individual's maximum lifespan that is spent out of the mating pool after mating. The thick dashed lines show $\delta_{i, \mathrm{f}}^*$ and $\delta_{i, \mathrm{m}}^*$ when inbreeding is sporadic, while the thin dashed line shows these thresholds at the frequent inbreeding extreme (if they differ). Note that each pixel reports the outcome of precisely two simulation runs, one where male-female encounters are common ($v = 80$) and another where they are rare ($v = 8$). The mosaic nature of the plot therefore reveals the stochasticity of outcomes when invasion begins with a small number of mutants per run. While inbreeding is therefore never guaranteed to invade, the plot allows identifying parameter regions where it never spreads, as opposed to often doing so. Results are for initial individual population sizes that collectively harbour 4000 gene copies at the relevant locus. Other parameters used in all panels: $C=5$, $n=5$ and $\mu = 1$.  
 
 ### Plotting results over the fine-scale parameter space
 
@@ -2430,7 +2309,7 @@ AX_heatmap_fine <-
 AX_heatmap_fine
 ```
 
-**Figure S2**. Results generated by stochastic population genetic simulations, for levels of inbreeding depression where $\delta_{\mathrm{f}, X}^*$ and $\delta_{\mathrm{m}, X}^*$ are predicted to depend on the emergent values of $F_\mathrm{f}$ and $F_\mathrm{m}$. Panels show the conditions where inbreeding invades to a high frequency (0.9) -- or in very rare cases should eventually reach this cut-off, but had not after 1000 time units -- when females (left column) or males (right column) control the outcome of mating interactions, for genes found on X and autosomal chromosomes. The autosomal situations act as controls, with inbreeding acceptance predicted to invade across a larger fraction of the plotted space compared with the X-linked case, if frequent inbreeding affects the invasion dynamics. Note that these panels are zoomed in versions of the relevant panels shown in Figure 2, simulated with a finer resolution. All other details are as in Figure 2.
+**Figure S2**. simulation results, for levels of inbreeding depression where $\delta_{\mathrm{X, f}}^*$ and $\delta_{\mathrm{X, m}}^*$ are predicted to depend on the emergent values of $F_\mathrm{f}$ and $F_\mathrm{m}$. Panels show the conditions where inbreeding invades to a high frequency (0.9) -- or in very rare cases where it is tending towards this cut-off, but had not after 1000 time units -- when females (left column) or males (right column) control the outcome of mating interactions, for genes found on X and autosomal chromosomes. The autosomal situations act as controls, with inbreeding acceptance predicted to invade across a larger fraction of the plotted space compared with the X-linked case, if frequent inbreeding affects the invasion dynamics. Note that these panels are zoomed in versions of the relevant panels shown in Figure 2, simulated with a finer resolution.
 
 #### Z autosome contrast
 
@@ -2514,7 +2393,196 @@ AZ_heatmap_fine <-
 AZ_heatmap_fine
 ```
 
-**Figure S3**. Results generated by stochastic population genetic simulations, for levels of inbreeding depression where $\delta_{\mathrm{f}, Z}^*$ and $\delta_{\mathrm{m}, Z}^*$ are predicted to depend on the emergent values of $F_\mathrm{f}$ and $F_\mathrm{m}$. Panels show the conditions where inbreeding invades to a high frequency (0.9) -- or in cases that should eventually reach this cut-off, but had not after 1000 time units -- when females (left column) or males (right column) control the outcome of mating interactions, for genes found on Z and autosomal chromosomes. The autosomal situations act as controls, with inbreeding acceptance predicted to invade across a smaller fraction of the plotted space compared with the Z-linked case, if frequent inbreeding affects the invasion dynamics. Note that these panels are zoomed in versions of the relevant panels shown in Figure 2, simulated with a finer resolution. All other details are as in Figure 2.
+**Figure S3**. simulation results, for levels of inbreeding depression where $\delta_{\mathrm{f}, Z}^*$ and $\delta_{\mathrm{m}, Z}^*$ are predicted to depend on the emergent values of $F_\mathrm{f}$ and $F_\mathrm{m}$. The autosomal situations act as controls, with inbreeding acceptance predicted to invade across a smaller fraction of the plotted space compared with the Z-linked case, if frequent inbreeding affects the invasion dynamics. Note that these panels are zoomed in versions of the relevant panels shown in Figure 2, simulated with a finer resolution. All other details are as in Figure S2.
+
+### Building supplementary dominance figures
+
+```{r}
+#| fig-height: 7.6
+
+Sunset_1 <- c("#b0cbe7", 
+              "#a8554e",
+            #"#eba07e", 
+            #"#fef7c7", 
+            #"#a8554e", 
+            "white")
+
+A_data_dominance <-
+  A_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive,
+         pop_size,
+         dominance) %>% 
+  mutate(Result = case_when(v_cat == "Low" & pop_size < 100 ~ "Pop extinction",
+                                v_cat == "Low" & I_prop >= 0.9 ~ 
+                                  "Fixes with low\nencounter rate",
+                                v_cat == "Low" & I_prop < 0.9 ~ "Does not fix",
+                                v_cat == "High" & pop_size < 100 ~ "Pop extinction",
+                                v_cat == "High" & I_prop >= 0.9 ~ 
+                                  "Fixes with high\nencounter rate",
+                                v_cat == "High" & I_prop < 0.9 ~ "Does not fix"),
+         dominance = case_when(dominance == 0 ~ "Recessive",
+                               dominance == 0.5 ~ "Additive",
+                               .default = "Dominant"))
+
+A_data_dominance %>% 
+  filter(v_cat == "High") |> 
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  scale_fill_manual(values = Sunset_1) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period (prob. outbred life has ended)",
+       fill = "Fate of _I_ allele",
+       title = "Autosomal loci") +
+  facet_grid(factor(dominance, levels = c("Recessive", "Additive", "Dominant")) ~ sex_expressed) +
+  
+  geom_vline(data = A_data_dominance %>% 
+               filter(sex_expressed == "Males have power"),
+             aes(xintercept = 1/(1 + 0.5*1)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = A_data_dominance %>% 
+               filter(sex_expressed == "Females have power"),
+             aes(xintercept = (0.5*1)/(1 + 0.5*1)), linetype = 2, colour = "black", linewidth = .8) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
+        strip.text = element_text(size = 14),
+        axis.title.x = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        plot.title = element_text(hjust = 0.5, size = 18),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+```
+
+**Figure S4**. results generated by stochastic population genetic simulations with different dominance coefficients for an autosomal allele. Panels show the conditions where inbreeding invades to a high frequency (0.9), when females (left column) or males (right column) control the outcome of mating interactions and inbreeding acceptance alleles are either completely recessive, additive or dominant. All other details are as in Figure 2. As alleles become more recessive, they are less likely to be expressed while rare, making it more difficult to overcome the drift barrier. 
+
+```{r}
+#| fig-height: 7.6
+X_data_dominance <-
+  X_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive,
+         dominance,
+         pop_size) %>% 
+      mutate(Result = case_when(v_cat == "Low" & pop_size < 100 ~ "Pop extinction",
+                                v_cat == "Low" & I_prop >= 0.9 ~ 
+                                  "Fixes with low\nencounter rate",
+                                v_cat == "Low" & I_prop < 0.9 ~ "Does not fix",
+                                v_cat == "High" & pop_size < 100 ~ "Pop extinction",
+                                v_cat == "High" & I_prop >= 0.9 ~ 
+                                  "Fixes with high\nencounter rate",
+                                v_cat == "High" & I_prop < 0.9 ~ "Does not fix"),
+         dominance = case_when(dominance == 0 ~ "Recessive",
+                               dominance == 0.5 ~ "Additive",
+                               .default = "Dominant"))
+
+X_data_dominance %>%
+  filter(v_cat == "High") |> 
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  scale_fill_manual(values = Sunset_1) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period (prob. outbred life has ended)",
+       fill = "Fate of _I_ allele",
+       title = "X-linked loci") +
+  facet_grid(factor(dominance, levels = c("Recessive", "Additive", "Dominant")) ~ sex_expressed) +
+  
+  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Males have power"),
+             aes(xintercept = 1/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Males have power"),
+             aes(xintercept = 1/(1 + 0.5*2)), linetype = 3, colour = "black", linewidth = .8) +
+  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Females have power"),
+             aes(xintercept = (0.5)/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = X_data_dominance %>% filter(sex_expressed == "Females have power"),
+             aes(xintercept = (0.5)/(2 + 0.5)), linetype = 3, colour = "black", linewidth = .8) +
+  
+
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
+        panel.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 14),
+        axis.title.x = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        plot.title = element_text(hjust = 0.5, size = 18),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+```
+
+**Figure S5**. Results generated by stochastic population genetic simulations with different dominance coefficients for a X-linked allele. All other details are as in Figure 2. White fill indicates dominance scenarios we do not explore, due to hemizygosity. 
+
+```{r}
+#| fig-height: 7.6
+Z_data_dominance <-
+  Z_data %>% 
+  select(I_prop, 
+         sex_expressed, 
+         v_cat, 
+         D_prop,
+         refractory_period_prop_cohort_alive,
+         dominance,
+         pop_size) %>% 
+  mutate(Result = case_when(v_cat == "Low" & pop_size < 100 ~ "Pop extinction",
+                                v_cat == "Low" & I_prop >= 0.9 ~ 
+                                  "Fixes with low\nencounter rate",
+                                v_cat == "Low" & I_prop < 0.9 ~ "Does not fix",
+                                v_cat == "High" & pop_size < 100 ~ "Pop extinction",
+                                v_cat == "High" & I_prop >= 0.9 ~ 
+                                  "Fixes with high\nencounter rate",
+                                v_cat == "High" & I_prop < 0.9 ~ "Does not fix"),
+         dominance = case_when(dominance == 0 ~ "Recessive",
+                               dominance == 0.5 ~ "Additive",
+                               .default = "Dominant"))
+
+Z_data_dominance %>% 
+  filter(v_cat == "High") |> 
+  ggplot(aes(x = D_prop, y = 1-refractory_period_prop_cohort_alive)) +
+  geom_blank() +
+  geom_tile(aes(fill = Result), alpha = 1) + 
+  scale_fill_manual(values = Sunset_1) +
+  labs(x = ~delta~'(inbreeding depression)',
+       y = "Male refractory period (prob. outbred life has ended)",
+       fill = "Fate of _I_ allele",
+       title = "Z-linked loci") +
+  facet_grid(factor(dominance, levels = c("Recessive", "Additive", "Dominant")) ~ sex_expressed) +
+  
+  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Males have power"),
+             aes(xintercept = 1/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Males have power"),
+             aes(xintercept = 2/(2 + 0.5)), linetype = 3, colour = "black", linewidth = .8) +
+  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Females have power"),
+             aes(xintercept = (0.5)/(1 + 0.5)), linetype = 2, colour = "black", linewidth = .8) +
+  geom_vline(data = Z_data_dominance %>% filter(sex_expressed == "Females have power"),
+             aes(xintercept = (0.5*2)/(2*0.5 + 1)), linetype = 3, colour = "black", linewidth = .8) +
+  coord_fixed() +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1)) + 
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = .8),
+        strip.background = element_rect(colour = "black", fill = "aliceblue", linewidth = .8),
+        panel.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 14),
+        axis.title.x = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        plot.title = element_text(hjust = 0.5, size = 18),
+        axis.text = element_text(size =12),
+        legend.title = element_markdown(),
+        panel.spacing = unit(1, "lines"))
+```
+
+**Figure S6**. Results generated by stochastic population genetic simulations with different dominance coefficients for a Z-linked allele. All other details are as in Figure 2. White fill indicates dominance scenarios we do not explore, due to hemizygosity. 
 
 # System environment
 
